@@ -1,0 +1,10 @@
+main
+
+create plugin
+-> coro
+   | create plugin
+   | yield
+<--
+create plugin
+--> plugin
+   |
