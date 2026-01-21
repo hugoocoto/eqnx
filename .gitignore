@@ -1,4 +1,5 @@
 main
 src
 main.o
+plugin2.so
 plugin.so

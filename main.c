@@ -10,7 +10,10 @@
 
 #define EXPORTED // mark functions as part of the api
 #define UNUSED(x) ((void) (x))
-#define INIT_PLUGIN "plugin.so"
+
+/* This plugin is the entry point of the program, it's the first and unique
+ * plugin called from here */
+#define INIT_PLUGIN "./plugin.so"
 
 #define plugin_defaults                      \
         (Plugin)                             \
@@ -23,29 +26,26 @@
                              sizeof(Plugin)))
 
 typedef struct PlugUpwardsCall {
-        enum {
-                MAINLOOP = 8974, // just for debugging reasons (yes, for
-                                 // debugging, trust me)
-                RUN = 8975,
-        } type;
         void *arg;
+        enum {
+                MAINLOOP,
+                RUN,
+        } type;
 } PlugUpwardsCall;
 
 EXPORTED Plugin *
-child_run(char *plugpath)
+plug_run(char *plugpath)
 {
         Plugin *plug;
         PlugUpwardsCall call = (PlugUpwardsCall) {
                 .type = RUN,
                 .arg = plugpath,
         };
+
         assert(mco_push(mco_running(), &plugpath, sizeof(char *)) == MCO_SUCCESS);
-        // printf("Push %p plug path\n", mco_running());
         assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
-        // printf("Push %p call\n", mco_running());
         assert(mco_yield(mco_running()) == MCO_SUCCESS);
         assert(mco_pop(mco_running(), &plug, sizeof(Plugin *)) == MCO_SUCCESS);
-        // printf("Pop %p plug addr\n", mco_running());
         return plug;
 }
 
@@ -56,7 +56,6 @@ mainloop()
                 .type = MAINLOOP,
         };
         assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
-        // printf("Push %p call\n", mco_running());
         assert(mco_yield(mco_running()) == MCO_SUCCESS);
 }
 
@@ -66,7 +65,8 @@ coro_entry(mco_coro *co)
 {
         Plugin *plug = mco_get_user_data(co);
         int status = plug->main(1, (char *[]) { plug->name });
-        printf("%s main returns %d\n", plug->name, status);
+        // main returns here
+        UNUSED(status);
 }
 
 
@@ -92,8 +92,8 @@ static void
 plug_release(Plugin *p)
 {
         if (!p) return;
-        for (int i = 0; i < p->childs.count; i++) {
-                plug_release(p->childs.data[i]);
+        for (int i = 0; i < p->children.count; i++) {
+                plug_release(p->children.data[i]);
         }
         assert(mco_resume(p->co) == MCO_SUCCESS);
         assert(mco_status(p->co) == MCO_DEAD);
@@ -105,7 +105,7 @@ plug_open(const char *plugdir)
         Plugin *plug = plugin_new();
         void *handle = dlopen(plugdir, RTLD_NOW);
         if (!handle) {
-                printf("Error: dlopen: %s\n", dlerror());
+                fprintf(stderr, "Error: dlopen: %s\n", dlerror());
                 plug_destroy(plug);
                 return 0;
         }
@@ -118,43 +118,44 @@ plug_open(const char *plugdir)
         free(s);
 
         // Init plugin corrutine
-        mco_desc desc = mco_desc_init(coro_entry, 0);  // First initialize a `desc` object through `mco_desc_init`.
-        desc.user_data = plug;                         // Configure `desc` fields when needed (e.g. customize user_data or allocation functions).
-        mco_result res = mco_create(&plug->co, &desc); // Call `mco_create` with the output coroutine pointer and `desc` pointer.
-        assert(res == MCO_SUCCESS);
-        assert(mco_status(plug->co) == MCO_SUSPENDED); // The coroutine should be now in suspended state.
+        mco_desc desc = mco_desc_init(coro_entry, 0);
+        desc.user_data = plug;
+        assert(mco_create(&plug->co, &desc) == MCO_SUCCESS);
+        assert(mco_status(plug->co) == MCO_SUSPENDED);
         return plug;
 }
 
 static void
 plug_add_child(Plugin *parent, Plugin *child)
 {
+        /* Just add an element to a dynamic array */
         assert(parent);
         assert(child);
-        if (parent->childs.capacity <= parent->childs.count) {
-                if (parent->childs.capacity == 0) {
-                        parent->childs.capacity = 2;
+        while (parent->children.capacity <= parent->children.count) {
+                if (parent->children.capacity == 0) {
+                        parent->children.capacity = 2;
                 } else {
-                        parent->childs.capacity *= 2;
+                        parent->children.capacity *= 2;
                 }
-                parent->childs.data = realloc(parent->childs.data,
+                parent->children.data = realloc(parent->children.data,
                                               sizeof(Plugin *) *
-                                              parent->childs.capacity);
+                                              parent->children.capacity);
         }
-        parent->childs.data[parent->childs.count] = child;
-        parent->childs.count++;
+        parent->children.data[parent->children.count] = child;
+        parent->children.count++;
 }
 
 static int
-plug_run(Plugin *p)
+plug_exec(Plugin *p)
 {
         if (!p) return 1;
-
         assert(mco_resume(p->co) == MCO_SUCCESS);
 
         for (;;) {
                 switch (mco_status(p->co)) {
                 case MCO_DEAD:
+                        /* This is only executed if a plugin main returns before
+                         * mainloop() is called. */
                         assert(mco_destroy(p->co) == MCO_SUCCESS);
                         printf("Invalid plugin: Don't forget to call mainloop()!\n");
                         abort(); // Maybe not
@@ -162,30 +163,28 @@ plug_run(Plugin *p)
                 case MCO_SUSPENDED: {
                         PlugUpwardsCall call;
                         assert(mco_pop(p->co, &call, sizeof call) == MCO_SUCCESS);
-                        // printf("Pop %p call\n", p->co);
                         switch (call.type) {
                         case RUN: {
                                 char *plugdir;
                                 assert(mco_pop(p->co, &plugdir, sizeof(char *)) == MCO_SUCCESS);
-                                // printf("Pop %p plug path\n", p->co);
                                 Plugin *plug = plug_open(plugdir);
-                                plug_add_child(p, plug);
-                                plug_run(plug);
+                                if (!plug_exec(plug)) plug_add_child(p, plug);
                                 assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
-                                // printf("Push %p plug addr\n", p->co);
                                 assert(mco_resume(p->co) == MCO_SUCCESS);
                         } break;
 
                         case MAINLOOP:
                                 return 0;
                         default:
-                                printf("Error %s:%d: unhandled branch %d!\n", __FILE__, __LINE__, call.type);
+                                printf("Error %s:%d: unhandled branch (call type)%d!\n",
+                                       __FILE__, __LINE__, call.type);
                                 abort();
                         }
                 } break;
 
                 default:
-                        printf("Error %s:%d: unhandled branch!\n", __FILE__, __LINE__);
+                        printf("Error %s:%d: unhandled branch (co status)!\n",
+                               __FILE__, __LINE__);
                         abort();
                 }
         }
@@ -199,7 +198,7 @@ main(int argc, char **argv)
         UNUSED(argv);
         printf("(main.c)\n");
         Plugin *p = plug_open(INIT_PLUGIN);
-        plug_run(p);
+        if (plug_exec(p)) return 1;
         printf("Press any key to terminate...");
         fflush(stdout);
         getchar();

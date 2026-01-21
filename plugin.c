@@ -8,7 +8,7 @@ main(int argc, char **argv)
 {
         assert(argc == 1);
         printf("(Plugin: %s) Hello!\n", argv[0]);
-        child_run("./plugin2.so");
+        plug_run("./plugin2.so");
         mainloop();
         printf("(Plugin: %s) returns\n", argv[0]);
         return 0;
