@@ -59,7 +59,7 @@ mainloop()
         assert(mco_yield(mco_running()) == MCO_SUCCESS);
 }
 
-// Coroutine entry function.
+// Coroutine entry function (trampoline to main).
 static void
 coro_entry(mco_coro *co)
 {
@@ -128,7 +128,6 @@ plug_open(const char *plugdir)
 static void
 plug_add_child(Plugin *parent, Plugin *child)
 {
-        /* Just add an element to a dynamic array */
         assert(parent);
         assert(child);
         while (parent->children.capacity <= parent->children.count) {
@@ -154,7 +153,7 @@ plug_exec(Plugin *p)
         for (;;) {
                 switch (mco_status(p->co)) {
                 case MCO_DEAD:
-                        /* This is only executed if a plugin main returns before
+                        /* This is executed only if a plugin main returns before
                          * mainloop() is called. */
                         assert(mco_destroy(p->co) == MCO_SUCCESS);
                         printf("Invalid plugin: Don't forget to call mainloop()!\n");
