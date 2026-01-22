@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "flag.h"
+
 #define MINICORO_IMPL
 #include "minicoro.h"
 
@@ -137,8 +139,8 @@ plug_add_child(Plugin *parent, Plugin *child)
                         parent->children.capacity *= 2;
                 }
                 parent->children.data = realloc(parent->children.data,
-                                              sizeof(Plugin *) *
-                                              parent->children.capacity);
+                                                sizeof(Plugin *) *
+                                                parent->children.capacity);
         }
         parent->children.data[parent->children.count] = child;
         parent->children.count++;
@@ -193,10 +195,21 @@ plug_exec(Plugin *p)
 int
 main(int argc, char **argv)
 {
-        UNUSED(argc);
-        UNUSED(argv);
-        printf("(main.c)\n");
-        Plugin *p = plug_open(INIT_PLUGIN);
+        char *v, *ppath;
+        flag_program(.help = "Plugs by Hugo Coto");
+        flag_add(&v, "--version", "-v", .help = "show version");
+        flag_add(&ppath, "--plugin", "-p", .help = "init plugin", .defaults = INIT_PLUGIN, .nargs = 1);
+
+        if (flag_parse(&argc, &argv)) {
+                flag_show_help(STDOUT_FILENO);
+                exit(1);
+        } else if (v) {
+                printf("Version: 0.0.0\n");
+                exit(0);
+        }
+
+        printf("(main.c: plugin -> %s)\n", ppath);
+        Plugin *p = plug_open(ppath);
         if (plug_exec(p)) return 1;
         printf("Press any key to terminate...");
         fflush(stdout);

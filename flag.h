@@ -4,7 +4,7 @@
 
 /* Todo:
  * - accept -a=AA
- * - accept positional arguments
+ * - accept positional arguments? maybe not, I mean, you can iter over argv
  */
 
 #ifndef FLAG2_H_
@@ -58,40 +58,40 @@ flag_show_help(int fileno)
 {
         int i, j;
 
-        printf("usage: %s", flag_prog.name);
+        dprintf(fileno, "usage: %s", flag_prog.name);
         if (flag_flags.count == 0) goto prog_help;
 
         for (i = 0; i < flag_flags.count; i++) {
-                printf(flag_flags.flags[i].required ? " " : " [");
+                dprintf(fileno, flag_flags.flags[i].required ? " " : " [");
                 if (flag_flags.flags[i].abbr)
-                        printf("%s", flag_flags.flags[i].abbr);
+                        dprintf(fileno, "%s", flag_flags.flags[i].abbr);
                 else
-                        printf("%s", flag_flags.flags[i].opt);
+                        dprintf(fileno, "%s", flag_flags.flags[i].opt);
                 for (j = 0; j < flag_flags.flags[i].nargs; j++)
-                        printf(" %c", toupper(flag_flags.flags[i].opt[2]));
-                printf(flag_flags.flags[i].required ? "" : "]");
+                        dprintf(fileno, " %c", toupper(flag_flags.flags[i].opt[2]));
+                dprintf(fileno, flag_flags.flags[i].required ? "" : "]");
         }
 
 prog_help:
-        printf("\n\n");
-        if (flag_prog.help) printf("%s\n\n", flag_prog.help);
+        dprintf(fileno, "\n\n");
+        if (flag_prog.help) dprintf(fileno, "%s\n\n", flag_prog.help);
         if (flag_flags.count == 0) return;
 
-        printf("options:\n");
+        dprintf(fileno, "options:\n");
         for (i = 0; i < flag_flags.count; i++) {
-                printf(" ");
+                dprintf(fileno, " ");
                 if (flag_flags.flags[i].opt)
-                        printf("%s", flag_flags.flags[i].opt);
+                        dprintf(fileno, "%s", flag_flags.flags[i].opt);
                 if (flag_flags.flags[i].abbr)
-                        printf(", %s", flag_flags.flags[i].abbr);
+                        dprintf(fileno, ", %s", flag_flags.flags[i].abbr);
                 for (j = 0; j < flag_flags.flags[i].nargs; j++)
-                        printf(" %c", toupper(flag_flags.flags[i].opt[2]));
-                printf(" \t");
+                        dprintf(fileno, " %c", toupper(flag_flags.flags[i].opt[2]));
+                dprintf(fileno, " \t");
                 if (flag_flags.flags[i].help)
-                        printf("%s", flag_flags.flags[i].help);
+                        dprintf(fileno, "%s", flag_flags.flags[i].help);
                 if (flag_flags.flags[i].defaults)
-                        printf(" (default: %s)", flag_flags.flags[i].defaults);
-                printf("\n");
+                        dprintf(fileno, " (default: %s)", flag_flags.flags[i].defaults);
+                dprintf(fileno, "\n");
         }
 }
 
@@ -120,6 +120,8 @@ flag_parse(int *argc, char ***argv)
         struct flag_opts *fopt;
         int i, j;
 
+        if (!flag_prog.name || !*flag_prog.name) flag_prog.name = **argv;
+
         for (i = 0; i < *argc; i++) {
                 if (strcmp(argv[0][i], "-h") == 0 ||
                     strcmp(argv[0][i], "-help") == 0 ||
@@ -129,23 +131,35 @@ flag_parse(int *argc, char ***argv)
                 }
         }
 
-        if (!flag_prog.name) flag_prog.name = **argv;
         for (i = 0; i < *argc; i++) {
                 for (j = 0; j < flag_flags.count; j++) {
                         fopt = flag_flags.flags + j;
                         if (!fopt->var) continue;
-                        if (*fopt->var || /* var already set or name not match */
-                            !((fopt->opt && !strcmp(fopt->opt, argv[0][i])) ||
-                              (fopt->abbr && !strcmp(fopt->abbr, argv[0][i]))))
-                                continue;
+
+                        int o = fopt->opt &&
+                                !strncmp(fopt->opt, argv[0][i], strlen(fopt->opt)) &&
+                                (argv[0][i][strlen(fopt->opt)] == 0 ||
+                                 argv[0][i][strlen(fopt->opt)] == '=');
+                        int a = fopt->abbr &&
+                                !strncmp(fopt->abbr, argv[0][i], strlen(fopt->abbr)) &&
+                                (argv[0][i][strlen(fopt->abbr)] == 0 ||
+                                 argv[0][i][strlen(fopt->abbr)] == '=');
+
+                        /* var already set or name not match */
+                        if (!*fopt->var && !o && !a) continue;
 
                         if (fopt->nargs > 0) {
                                 if (fopt->nargs > 1) {
                                         fprintf(stderr, "Ups! Unsupported nargs > 1\n");
                                         return 1;
                                 }
-                                *fopt->var = argv[0][i + 1];
-                                ++i;
+                                if ((o && argv[0][i][strlen(fopt->opt)] == '=') ||
+                                    (a && argv[0][i][strlen(fopt->abbr)] == '=')) {
+                                        *fopt->var = strchr(argv[0][i], '=') + 1;
+                                } else {
+                                        *fopt->var = argv[0][i + 1];
+                                        ++i;
+                                }
                         } else
                                 *fopt->var = (char *) 1;
                 }

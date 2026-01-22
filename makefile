@@ -6,7 +6,7 @@ all: plugin.so plugin2.so main window.c test_window
 main: main.o makefile
 	gcc $(FLAGS) main.o -o main -rdynamic
 
-main.o: main.c makefile minicoro.h
+main.o: main.c makefile minicoro.h flag.h
 	gcc $(FLAGS) -c main.c -o main.o 
 
 plugin.so: plugin.c makefile main.c
