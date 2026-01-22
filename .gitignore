@@ -3,3 +3,5 @@ src
 main.o
 plugin2.so
 plugin.so
+window.o
+test_window
