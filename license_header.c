@@ -1,7 +1,7 @@
-/* This file is part of Equinox
+/* This file is part of Eqnx
  *
- * Public repository:   https://github.com/hugoocoto/equinox
- * Webpage:             https://hugocoto.com/equinox
+ * Public repository:   https://github.com/hugoocoto/eqnx
+ * Webpage:             https://hugocoto.com/eqnx
  *
  * Copyright (C) 2026  Hugo Coto Flórez
  *
