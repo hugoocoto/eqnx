@@ -8,7 +8,7 @@
  */
 
 #ifndef FLAG2_H_
-#define FLAG2_H_
+#define FLAG2_H_ 1
 
 #include <ctype.h>
 #include <stdio.h>

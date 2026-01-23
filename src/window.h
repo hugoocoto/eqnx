@@ -1,5 +1,5 @@
 #ifndef WINDOW_H_
-#define WINDOW_H_
+#define WINDOW_H_ 1
 
 #include <stddef.h>
 

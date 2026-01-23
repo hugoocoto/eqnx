@@ -63,93 +63,90 @@ create_shm_file(off_t size)
 }
 
 static void
-destroy_frame_resources(Framebuffer *f)
+fb_destroy()
 {
-        if (f->buffers[0]) wl_buffer_destroy(f->buffers[0]);
-        if (f->buffers[1]) wl_buffer_destroy(f->buffers[1]);
-        f->buffers[0] = NULL;
-        f->buffers[1] = NULL;
+        if (fb.buffers[0]) wl_buffer_destroy(fb.buffers[0]);
+        if (fb.buffers[1]) wl_buffer_destroy(fb.buffers[1]);
+        fb.buffers[0] = NULL;
+        fb.buffers[1] = NULL;
 
-        if (f->data) munmap(f->data, f->capacity);
-        f->data = NULL;
+        if (fb.data) munmap(fb.data, fb.capacity);
+        fb.data = NULL;
 
-        if (f->fd >= 0) close(f->fd);
-        f->fd = -1;
+        if (fb.fd >= 0) close(fb.fd);
+        fb.fd = -1;
 }
 
 static int
-init_buffers(Framebuffer *f, int w, int h, int stride)
+init_buffers(int w, int h, int stride)
 {
         size_t page_size = stride * h;
         size_t total_size = page_size * 2;
 
-        if (f->capacity < total_size || f->fd < 0) {
-                destroy_frame_resources(f);
-                f->fd = create_shm_file(total_size);
-                if (f->fd < 0) return -1;
+        if (fb.capacity < total_size || fb.fd < 0) {
+                fb_destroy();
+                fb.fd = create_shm_file(total_size);
+                if (fb.fd < 0) return -1;
 
-                f->data = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_SHARED, f->fd, 0);
-                if (f->data == MAP_FAILED) {
-                        close(f->fd);
+                fb.data = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb.fd, 0);
+                if (fb.data == MAP_FAILED) {
+                        close(fb.fd);
                         return -1;
                 }
-                f->capacity = total_size;
+                fb.capacity = total_size;
 
         } else {
-                if (f->buffers[0]) wl_buffer_destroy(f->buffers[0]);
-                if (f->buffers[1]) wl_buffer_destroy(f->buffers[1]);
+                if (fb.buffers[0]) wl_buffer_destroy(fb.buffers[0]);
+                if (fb.buffers[1]) wl_buffer_destroy(fb.buffers[1]);
         }
 
-        struct wl_shm_pool *pool = wl_shm_create_pool(shm, f->fd, f->capacity);
+        struct wl_shm_pool *pool = wl_shm_create_pool(shm, fb.fd, fb.capacity);
 
-        f->buffers[0] = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_ARGB8888);
-        f->buffers[1] = wl_shm_pool_create_buffer(pool, page_size, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        fb.buffers[0] = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        fb.buffers[1] = wl_shm_pool_create_buffer(pool, page_size, w, h, stride, WL_SHM_FORMAT_ARGB8888);
 
         wl_shm_pool_destroy(pool);
         return 0;
 }
 
 static int
-fb_create(Framebuffer *fb, int w, int h)
+fb_create(int w, int h)
 {
-        fb->width = w;
-        fb->height = h;
-        fb->stride = w * 4; // ARGB
-        fb->fd = -1;
-        fb->data = NULL;
-        fb->buffers[0] = NULL;
-        fb->buffers[1] = NULL;
-        fb->capacity = 0;
-        fb->current_idx = 0;
+        fb = (Framebuffer) {
+                .width = w,
+                .height = h,
+                .stride = w * 4, // ARGB
+                .fd = -1,
+        };
 
-        return init_buffers(fb, w, h, fb->stride);
+        return init_buffers(w, h, fb.stride);
 }
 
 static int
-fb_resize(Framebuffer *fb, int w, int h)
+fb_resize(int w, int h)
 {
         if (w <= 0 || h <= 0) return 1;
-        if (w == fb->width && h == fb->height) return 0;
+        if (w == fb.width && h == fb.height) return 0;
 
-        fb->width = w;
-        fb->height = h;
-        fb->stride = w * 4;
+        fb.width = w;
+        fb.height = h;
+        fb.stride = w * 4;
 
-        return init_buffers(fb, w, h, fb->stride);
+        return init_buffers(w, h, fb.stride);
 }
 
 uint32_t *
-fb_get_active_data(Framebuffer *fb)
+fb_get_active_data()
 {
-        size_t offset_pixels = fb->current_idx * (fb->width * fb->height);
-        return fb->data + offset_pixels;
+        size_t offset_pixels = fb.current_idx * (fb.width * fb.height);
+        return fb.data + offset_pixels;
 }
 
-static int
-fb_clear(Framebuffer *fb, uint32_t color)
+int
+fb_clear(uint32_t color)
 {
-        uint32_t *pixels = fb_get_active_data(fb);
-        size_t count = fb->width * fb->height;
+        uint32_t *pixels = fb_get_active_data();
+        size_t count = fb.width * fb.height;
         for (size_t i = 0; i < count; ++i) {
                 pixels[i] = color;
         }
@@ -157,22 +154,15 @@ fb_clear(Framebuffer *fb, uint32_t color)
 }
 
 void
-fb_swap(Framebuffer *fb)
+fb_swap()
 {
-        fb->current_idx = 1 - fb->current_idx;
+        fb.current_idx = 1 - fb.current_idx;
 }
 
 struct wl_buffer *
-fb_get_ready_buffer(Framebuffer *fb)
+fb_get_ready_buffer()
 {
-        return fb->buffers[fb->current_idx];
-}
-
-static int
-fb_destroy(Framebuffer *fb)
-{
-        destroy_frame_resources(fb);
-        return 0;
+        return fb.buffers[fb.current_idx];
 }
 
 static void
@@ -401,7 +391,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t seri
         int new_h = (pending_height > 0) ? pending_height : fb.height;
 
         if (new_w != fb.width || new_h != fb.height) {
-                fb_resize(&fb, new_w, new_h);
+                fb_resize(new_w, new_h);
         }
 
         xdg_surface_ack_configure(xdg_surface, serial);
@@ -523,7 +513,7 @@ wayland_init(void)
         wayland_set_title(TITLE);
         wl_surface_commit(surface);
 
-        if (fb_create(&fb, 800, 600) != 0) {
+        if (fb_create(800, 600) != 0) {
                 printf("Error! Can not create framebuffer\n");
                 return 1;
         }
@@ -553,17 +543,17 @@ void
 wayland_present(void)
 {
         if (should_quit || !surface) return;
-        struct wl_buffer *buffer = fb_get_ready_buffer(&fb);
+        struct wl_buffer *buffer = fb_get_ready_buffer();
         wl_surface_attach(surface, buffer, 0, 0);
         wl_surface_damage(surface, 0, 0, fb.width, fb.height);
         wl_surface_commit(surface);
-        fb_swap(&fb);
+        fb_swap();
 }
 
 void
 wayland_cleanup(void)
 {
-        fb_destroy(&fb);
+        fb_destroy();
         if (xdg_toplevel) xdg_toplevel_destroy(xdg_toplevel);
         if (xdg_surface) xdg_surface_destroy(xdg_surface);
         if (surface) wl_surface_destroy(surface);

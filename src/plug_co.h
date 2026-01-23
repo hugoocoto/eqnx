@@ -1,5 +1,5 @@
 #ifndef PLUG_CO_H
-#define PLUG_CO_H
+#define PLUG_CO_H 1
 
 #include "plug_api.h"
 
