@@ -1,26 +1,21 @@
-#include "plug_api.h"
 #include <dlfcn.h>
 #include <libgen.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include "flag.h"
+#include "plug_api.h"
 
 #define MINICORO_IMPL
-#include "minicoro.h"
+#include "../thirdparty/minicoro.h"
 
 #define EXPORTED // mark functions as part of the api
 #define UNUSED(x) ((void) (x))
 
-/* This plugin is the entry point of the program, it's the first and unique
- * plugin called from here */
-#define INIT_PLUGIN "./plugin.so"
 
 #define plugin_defaults                      \
         (Plugin)                             \
         {                                    \
                 .main = plugin_default_main, \
+                .render = NULL,              \
+                .event = NULL,               \
         }
 
 #define plugin_new() (memcpy(malloc(sizeof(Plugin)), \
@@ -62,7 +57,7 @@ mainloop()
 }
 
 // Coroutine entry function (trampoline to main).
-static void
+void
 coro_entry(mco_coro *co)
 {
         Plugin *plug = mco_get_user_data(co);
@@ -72,7 +67,7 @@ coro_entry(mco_coro *co)
 }
 
 
-static int
+int
 plugin_default_main(int argc, char **argv)
 {
         UNUSED(argc);
@@ -81,7 +76,7 @@ plugin_default_main(int argc, char **argv)
         return 0;
 }
 
-static void
+void
 plug_destroy(Plugin *p)
 {
         if (!p) return;
@@ -90,7 +85,7 @@ plug_destroy(Plugin *p)
         free(p);
 }
 
-static void
+void
 plug_release(Plugin *p)
 {
         if (!p) return;
@@ -101,7 +96,7 @@ plug_release(Plugin *p)
         assert(mco_status(p->co) == MCO_DEAD);
 }
 
-static Plugin *
+Plugin *
 plug_open(const char *plugdir)
 {
         Plugin *plug = plugin_new();
@@ -114,6 +109,8 @@ plug_open(const char *plugdir)
 
         plug->handle = handle;
         plug->main = dlsym(handle, "main") ?: (void *) plug->main;
+        plug->event = dlsym(handle, "event") ?: (void *) plug->event;
+        plug->render = dlsym(handle, "render") ?: (void *) plug->render;
 
         char *s = strdup(plugdir);
         strncpy(plug->name, basename(s), sizeof plug->name - 1);
@@ -127,7 +124,7 @@ plug_open(const char *plugdir)
         return plug;
 }
 
-static void
+void
 plug_add_child(Plugin *parent, Plugin *child)
 {
         assert(parent);
@@ -146,7 +143,7 @@ plug_add_child(Plugin *parent, Plugin *child)
         parent->children.count++;
 }
 
-static int
+int
 plug_exec(Plugin *p)
 {
         if (!p) return 1;
@@ -189,33 +186,5 @@ plug_exec(Plugin *p)
                         abort();
                 }
         }
-        return 0;
-}
-
-int
-main(int argc, char **argv)
-{
-        char *v, *ppath;
-        flag_program(.help = "Plugs by Hugo Coto");
-        flag_add(&v, "--version", "-v", .help = "show version");
-        flag_add(&ppath, "--plugin", "-p", .help = "init plugin", .defaults = INIT_PLUGIN, .nargs = 1);
-
-        if (flag_parse(&argc, &argv)) {
-                flag_show_help(STDOUT_FILENO);
-                exit(1);
-        } else if (v) {
-                printf("Version: 0.0.0\n");
-                exit(0);
-        }
-
-        printf("(main.c: plugin -> %s)\n", ppath);
-        Plugin *p = plug_open(ppath);
-        if (plug_exec(p)) return 1;
-        printf("Press any key to terminate...");
-        fflush(stdout);
-        getchar();
-        plug_release(p);
-        plug_destroy(p);
-        printf("(main.c) return\n");
         return 0;
 }

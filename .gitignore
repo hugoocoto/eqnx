@@ -1,7 +1,7 @@
-main
-src
-main.o
-plugin2.so
-plugin.so
-window.o
-test_window
+wayland-protocol
+obj
+eqnx
+plugins/plugin2.so
+plugins/plugin.so
+plugins/*.so
+.gitignore

@@ -1,0 +1,576 @@
+#define _GNU_SOURCE
+#define _POSIX_C_SOURCE 200809L
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+#include "../wayland-protocol/xdg-shell-client-protocol.h"
+#include "keypress.h"
+#include "wayland_client.h"
+
+#define TITLE "Equinox"
+
+static struct wl_compositor *compositor;
+static struct wl_display *display;
+static struct wl_keyboard *keyboard;
+static struct wl_pointer *pointer;
+static struct wl_registry *registry;
+static struct wl_seat *seat;
+static struct wl_surface *surface;
+static struct xdg_surface *xdg_surface;
+static struct xdg_toplevel *xdg_toplevel;
+static struct xdg_wm_base *xdg_wm_base;
+static struct xkb_context *xkb_context;
+static struct xkb_keymap *xkb_keymap;
+static struct xkb_state *xkb_state;
+static struct wl_shm *shm;
+
+static bool should_quit = false;
+static int pending_height = 0;
+static int pending_width = 0;
+static double pointer_x = .0;
+static double pointer_y = .0;
+static double pending_pointer_x;
+static double pending_pointer_y;
+static bool has_pending_pointer = false;
+static char *current_title = NULL;
+static bool init = 0;
+
+typedef struct framebuffer {
+        struct wl_buffer *buffers[2];
+        uint32_t *data;
+        size_t capacity;
+        int fd;
+        int width, height;
+        int stride;
+        int current_idx;
+} Framebuffer;
+Framebuffer fb;
+
+static int
+create_shm_file(off_t size)
+{
+        int fd = memfd_create("wl-eqnx", MFD_CLOEXEC);
+        if (fd < 0) return -1;
+        if (ftruncate(fd, size) < 0) {
+                close(fd);
+                return -1;
+        }
+        return fd;
+}
+
+static void
+destroy_frame_resources(Framebuffer *f)
+{
+        if (f->buffers[0]) wl_buffer_destroy(f->buffers[0]);
+        if (f->buffers[1]) wl_buffer_destroy(f->buffers[1]);
+        f->buffers[0] = NULL;
+        f->buffers[1] = NULL;
+
+        if (f->data) munmap(f->data, f->capacity);
+        f->data = NULL;
+
+        if (f->fd >= 0) close(f->fd);
+        f->fd = -1;
+}
+
+static int
+init_buffers(Framebuffer *f, int w, int h, int stride)
+{
+        size_t page_size = stride * h;
+        size_t total_size = page_size * 2;
+
+        if (f->capacity < total_size || f->fd < 0) {
+                destroy_frame_resources(f);
+                f->fd = create_shm_file(total_size);
+                if (f->fd < 0) return -1;
+
+                f->data = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_SHARED, f->fd, 0);
+                if (f->data == MAP_FAILED) {
+                        close(f->fd);
+                        return -1;
+                }
+                f->capacity = total_size;
+
+        } else {
+                if (f->buffers[0]) wl_buffer_destroy(f->buffers[0]);
+                if (f->buffers[1]) wl_buffer_destroy(f->buffers[1]);
+        }
+
+        struct wl_shm_pool *pool = wl_shm_create_pool(shm, f->fd, f->capacity);
+
+        f->buffers[0] = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        f->buffers[1] = wl_shm_pool_create_buffer(pool, page_size, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+
+        wl_shm_pool_destroy(pool);
+        return 0;
+}
+
+static int
+fb_create(Framebuffer *fb, int w, int h)
+{
+        fb->width = w;
+        fb->height = h;
+        fb->stride = w * 4; // ARGB
+        fb->fd = -1;
+        fb->data = NULL;
+        fb->buffers[0] = NULL;
+        fb->buffers[1] = NULL;
+        fb->capacity = 0;
+        fb->current_idx = 0;
+
+        return init_buffers(fb, w, h, fb->stride);
+}
+
+static int
+fb_resize(Framebuffer *fb, int w, int h)
+{
+        if (w <= 0 || h <= 0) return 1;
+        if (w == fb->width && h == fb->height) return 0;
+
+        fb->width = w;
+        fb->height = h;
+        fb->stride = w * 4;
+
+        return init_buffers(fb, w, h, fb->stride);
+}
+
+uint32_t *
+fb_get_active_data(Framebuffer *fb)
+{
+        size_t offset_pixels = fb->current_idx * (fb->width * fb->height);
+        return fb->data + offset_pixels;
+}
+
+static int
+fb_clear(Framebuffer *fb, uint32_t color)
+{
+        uint32_t *pixels = fb_get_active_data(fb);
+        size_t count = fb->width * fb->height;
+        for (size_t i = 0; i < count; ++i) {
+                pixels[i] = color;
+        }
+        return 0;
+}
+
+void
+fb_swap(Framebuffer *fb)
+{
+        fb->current_idx = 1 - fb->current_idx;
+}
+
+struct wl_buffer *
+fb_get_ready_buffer(Framebuffer *fb)
+{
+        return fb->buffers[fb->current_idx];
+}
+
+static int
+fb_destroy(Framebuffer *fb)
+{
+        destroy_frame_resources(fb);
+        return 0;
+}
+
+static void
+pointer_frame(void *data, struct wl_pointer *wl_pointer)
+{
+        if (has_pending_pointer) {
+                pointer_x = pending_pointer_x;
+                pointer_y = pending_pointer_y;
+        }
+}
+
+static void
+pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y)
+{
+        printf("Pointer enters the window\n");
+}
+
+static void
+pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface)
+{
+        printf("Pointer leaves the window\n");
+}
+
+static void
+pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
+{
+        pending_pointer_x = wl_fixed_to_double(surface_x);
+        pending_pointer_y = wl_fixed_to_double(surface_y);
+        has_pending_pointer = true;
+}
+
+static void
+pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
+{
+        if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+                printf("Click: %d\n", button);
+        }
+}
+
+static void
+pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value)
+{
+        printf("Scroll detected\n");
+}
+
+static const struct wl_pointer_listener pointer_listener = {
+        .enter = pointer_enter,
+        .leave = pointer_leave,
+        .motion = pointer_motion,
+        .button = pointer_button,
+        .axis = pointer_axis,
+        .frame = pointer_frame,
+};
+
+static void
+keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint32_t format, int32_t fd, uint32_t size)
+{
+        if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+                printf("Invalid keyboard format: %d\n", format);
+                close(fd);
+                return;
+        }
+
+        char *map_shm = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+        if (map_shm == MAP_FAILED) {
+                close(fd);
+                return;
+        }
+
+        if (xkb_keymap) xkb_keymap_unref(xkb_keymap);
+        if (xkb_state) xkb_state_unref(xkb_state);
+
+        xkb_keymap = xkb_keymap_new_from_string(xkb_context, map_shm, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+        munmap(map_shm, size);
+        close(fd);
+
+        if (!xkb_keymap) {
+                printf("xkb_keymap compilation error\n");
+                return;
+        }
+
+        xkb_state = xkb_state_new(xkb_keymap);
+}
+
+static void
+keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
+{
+        printf("Keyboard focus enters window\n");
+}
+
+static void
+keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface)
+{
+        printf("Keyboard focus leaves window\n");
+}
+
+static void
+keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
+{
+        static int mods = 0;
+        uint32_t keycode = key + 8;
+        xkb_keysym_t sym = xkb_state_key_get_one_sym(xkb_state, keycode);
+
+        if (sym == XKB_KEY_NoSymbol) {
+                printf("sym = XKB_KEY_NoSymbol\n");
+                return;
+        }
+
+        switch (state) {
+        case WL_KEYBOARD_KEY_STATE_RELEASED:
+                switch (sym) {
+                case XKB_KEY_Shift_L: mods &= ~Mod_Shift_L; return;
+                case XKB_KEY_Shift_R: mods &= ~Mod_Shift_R; return;
+                case XKB_KEY_Control_L: mods &= ~Mod_Control_L; return;
+                case XKB_KEY_Control_R: mods &= ~Mod_Control_R; return;
+                case XKB_KEY_Caps_Lock: mods &= ~Mod_Caps_Lock; return;
+                case XKB_KEY_Shift_Lock: mods &= ~Mod_Shift_Lock; return;
+                case XKB_KEY_Meta_L: mods &= ~Mod_Meta_L; return;
+                case XKB_KEY_Meta_R: mods &= ~Mod_Meta_R; return;
+                case XKB_KEY_Alt_L: mods &= ~Mod_Alt_L; return;
+                case XKB_KEY_Alt_R: mods &= ~Mod_Alt_R; return;
+                case XKB_KEY_Super_L: mods &= ~Mod_Super_L; return;
+                case XKB_KEY_Super_R: mods &= ~Mod_Super_R; return;
+                case XKB_KEY_Hyper_L: mods &= ~Mod_Hyper_L; return;
+                case XKB_KEY_Hyper_R: mods &= ~Mod_Hyper_R; return;
+                }
+                break;
+
+        case WL_KEYBOARD_KEY_STATE_PRESSED:
+                switch (sym) {
+                default: {
+                        char buf[5] = { 0 };
+                        xkb_state_key_get_utf8(xkb_state, keycode, buf, sizeof(buf));
+                        register_keypress(sym, mods, buf);
+                } break;
+                case XKB_KEY_Shift_L: mods |= Mod_Shift_L; return;
+                case XKB_KEY_Shift_R: mods |= Mod_Shift_R; return;
+                case XKB_KEY_Control_L: mods |= Mod_Control_L; return;
+                case XKB_KEY_Control_R: mods |= Mod_Control_R; return;
+                case XKB_KEY_Caps_Lock: mods |= Mod_Caps_Lock; return;
+                case XKB_KEY_Shift_Lock: mods |= Mod_Shift_Lock; return;
+                case XKB_KEY_Meta_L: mods |= Mod_Meta_L; return;
+                case XKB_KEY_Meta_R: mods |= Mod_Meta_R; return;
+                case XKB_KEY_Alt_L: mods |= Mod_Alt_L; return;
+                case XKB_KEY_Alt_R: mods |= Mod_Alt_R; return;
+                case XKB_KEY_Super_L: mods |= Mod_Super_L; return;
+                case XKB_KEY_Super_R: mods |= Mod_Super_R; return;
+                case XKB_KEY_Hyper_L: mods |= Mod_Hyper_L; return;
+                case XKB_KEY_Hyper_R: mods |= Mod_Hyper_R; return;
+                }
+                break;
+
+        case WL_KEYBOARD_KEY_STATE_REPEATED: break;
+        }
+}
+
+static void
+keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group)
+{
+        if (!xkb_state) return;
+        xkb_state_update_mask(xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
+}
+
+static void
+keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, int32_t delay)
+{
+}
+
+static const struct wl_keyboard_listener keyboard_listener = {
+        .keymap = keyboard_keymap,
+        .enter = keyboard_enter,
+        .leave = keyboard_leave,
+        .key = keyboard_key,
+        .modifiers = keyboard_modifiers,
+        .repeat_info = keyboard_repeat_info,
+};
+
+static void
+seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities)
+{
+        bool has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+        bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+
+        if (has_pointer && !pointer) {
+                pointer = wl_seat_get_pointer(wl_seat);
+                wl_pointer_add_listener(pointer, &pointer_listener, NULL);
+        } else if (!has_pointer && pointer) {
+                wl_pointer_release(pointer);
+                pointer = NULL;
+        }
+
+        if (has_keyboard && !keyboard) {
+                keyboard = wl_seat_get_keyboard(wl_seat);
+                wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
+        } else if (!has_keyboard && keyboard) {
+                wl_keyboard_release(keyboard);
+                keyboard = NULL;
+        }
+}
+
+static void
+seat_name(void *data, struct wl_seat *wl_seat, const char *name)
+{
+}
+
+static const struct wl_seat_listener seat_listener = {
+        .capabilities = seat_capabilities,
+        .name = seat_name,
+};
+
+static void
+xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
+{
+        xdg_wm_base_pong(xdg_wm_base, serial);
+}
+
+static const struct xdg_wm_base_listener xdg_wm_base_listener = {
+        .ping = xdg_wm_base_ping,
+};
+
+static void
+xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
+{
+        int new_w = (pending_width > 0) ? pending_width : fb.width;
+        int new_h = (pending_height > 0) ? pending_height : fb.height;
+
+        if (new_w != fb.width || new_h != fb.height) {
+                fb_resize(&fb, new_w, new_h);
+        }
+
+        xdg_surface_ack_configure(xdg_surface, serial);
+}
+
+static const struct xdg_surface_listener xdg_surface_listener = {
+        .configure = xdg_surface_configure,
+};
+
+
+static void
+xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t w, int32_t h, struct wl_array *states)
+{
+        enum xdg_toplevel_state *state;
+        wl_array_for_each(state, states)
+        {
+                switch (*state) {
+                case XDG_TOPLEVEL_STATE_MAXIMIZED:
+                case XDG_TOPLEVEL_STATE_FULLSCREEN:
+                case XDG_TOPLEVEL_STATE_RESIZING:
+                case XDG_TOPLEVEL_STATE_ACTIVATED:
+                case XDG_TOPLEVEL_STATE_TILED_LEFT:
+                case XDG_TOPLEVEL_STATE_TILED_RIGHT:
+                case XDG_TOPLEVEL_STATE_TILED_TOP:
+                case XDG_TOPLEVEL_STATE_TILED_BOTTOM:
+                case XDG_TOPLEVEL_STATE_SUSPENDED:
+                case XDG_TOPLEVEL_STATE_CONSTRAINED_LEFT:
+                case XDG_TOPLEVEL_STATE_CONSTRAINED_RIGHT:
+                case XDG_TOPLEVEL_STATE_CONSTRAINED_TOP:
+                case XDG_TOPLEVEL_STATE_CONSTRAINED_BOTTOM: break;
+                }
+        }
+
+        if (w > 0 && h > 0) {
+                pending_width = w;
+                pending_height = h;
+        } else {
+                pending_width = 0;
+                pending_height = 0;
+        }
+}
+
+static void
+xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
+{
+        printf("xdg toplevel close event\n");
+        should_quit = true;
+}
+
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+        .configure = xdg_toplevel_configure,
+        .close = xdg_toplevel_close,
+};
+
+static void
+registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
+{
+        if (0) {
+        } else if (strcmp(interface, wl_compositor_interface.name) == 0) {
+                compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
+        } else if (strcmp(interface, wl_shm_interface.name) == 0) {
+                shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+        } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+                xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+                xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
+        } else if (strcmp(interface, wl_seat_interface.name) == 0) {
+                seat = wl_registry_bind(registry, name, &wl_seat_interface, 7);
+                wl_seat_add_listener(seat, &seat_listener, NULL);
+        }
+}
+
+static void
+registry_handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
+{
+}
+
+static const struct wl_registry_listener registry_listener = {
+        .global = registry_handle_global,
+        .global_remove = registry_handle_global_remove,
+};
+
+void
+wayland_set_title(char *title)
+{
+        if (current_title) free(current_title);
+        current_title = strdup(title);
+        xdg_toplevel_set_title(xdg_toplevel, current_title);
+}
+
+int
+wayland_init(void)
+{
+        xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+        if (!xkb_context) {
+                printf("Error: Failed to create xkb_context\n");
+                return 1;
+        }
+
+        display = wl_display_connect(NULL);
+        if (!display) {
+                printf("Error: Failed to connect to display\n");
+                return 1;
+        }
+
+        registry = wl_display_get_registry(display);
+        wl_registry_add_listener(registry, &registry_listener, NULL);
+        wl_display_roundtrip(display);
+
+        if (!compositor || !shm || !xdg_wm_base) {
+                printf("Error: Wayland globals missing\n");
+                return 1;
+        }
+
+        surface = wl_compositor_create_surface(compositor);
+        xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
+        xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
+        xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
+        xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
+        wayland_set_title(TITLE);
+        wl_surface_commit(surface);
+
+        if (fb_create(&fb, 800, 600) != 0) {
+                printf("Error! Can not create framebuffer\n");
+                return 1;
+        }
+
+        wl_display_roundtrip(display);
+        wayland_present();
+        init = 1;
+        return 0;
+}
+
+int
+wayland_dispatch_events(void)
+{
+        if (wl_display_dispatch(display) < 0) {
+                printf("wl_display_dispatch fails\n");
+                return 1;
+        }
+        wl_display_flush(display);
+        if (should_quit) {
+                printf("Close event!\n");
+                return 1;
+        }
+        return 0;
+}
+
+void
+wayland_present(void)
+{
+        if (should_quit || !surface) return;
+        struct wl_buffer *buffer = fb_get_ready_buffer(&fb);
+        wl_surface_attach(surface, buffer, 0, 0);
+        wl_surface_damage(surface, 0, 0, fb.width, fb.height);
+        wl_surface_commit(surface);
+        fb_swap(&fb);
+}
+
+void
+wayland_cleanup(void)
+{
+        fb_destroy(&fb);
+        if (xdg_toplevel) xdg_toplevel_destroy(xdg_toplevel);
+        if (xdg_surface) xdg_surface_destroy(xdg_surface);
+        if (surface) wl_surface_destroy(surface);
+        if (xkb_state) xkb_state_unref(xkb_state);
+        if (xkb_keymap) xkb_keymap_unref(xkb_keymap);
+        if (xkb_context) xkb_context_unref(xkb_context);
+        if (display) wl_display_disconnect(display);
+        if (current_title) free(current_title);
+        should_quit = true;
+}

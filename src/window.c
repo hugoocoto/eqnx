@@ -6,46 +6,11 @@
 #include <time.h>
 #include <unistd.h>
 
-/* UTF-8 2d buffer with common operations */
-
-// Unfinished
-
-typedef struct Window Window;
-
-Window *window_create(int x, int y, int h, int w);       // create a window
-int window_resize(Window *, int x, int y, int h, int w); // change window size
-char *window_get(Window *window, int x, int y);          // get utf8 char at x,y
-void window_set(Window *window, int x, int y, char *c);  // set utf8 char at x,y
-void window_setall(Window *window, char *c);             // set all chars to utf8 char c
+#include "window.h"
 
 /* MISC */
 void window_debug_term_print(Window *window); // print window buffer in stdout
 static int get_uc_size(char *size);           // get utf-8 char size in bytes
-
-/* Window geometry (just for me)
- *
- *       (x,y) +----(w)----> (x,y+w)   0,0 +----------> +y
- *             |                           |
- *            (h)                          |
- *             |                           |
- *             v                           v
- *      (x+h,y)                          +x
- */
-
-typedef struct Window {
-        // int x, y;
-        int w, h;
-        char *buffer;    // UTF-8 (4 bytes) buffer
-        size_t capacity; // buffer total capacity in bytes
-        int gap;         // gap between rows (p = x * gap + y)
-
-} Window;
-
-#define DEFAULT_WINDOW \
-        (Window)       \
-        {              \
-                0,     \
-        }
 
 Window *
 window_create(int x, int y, int h, int w)
@@ -127,28 +92,28 @@ window_debug_term_print(Window *window)
         }
 }
 
-int
-main()
-{
-        // setlocale(LC_ALL, "");
-
-        Window *window = window_create(0, 0, 10, 10);
-        window_setall(window, "ñ");
-        window_debug_term_print(window);
-        sleep(1);
-
-        window_resize(window, 0, 0, 5, 5);
-        window_setall(window, "0");
-        window_debug_term_print(window);
-        sleep(1);
-
-        window_resize(window, 0, 0, 10, 20);
-        window_setall(window, ".");
-        window_debug_term_print(window);
-        sleep(1);
-
-        window_resize(window, 0, 0, 80, 40);
-        window_setall(window, "?");
-        window_debug_term_print(window);
-        sleep(1);
-}
+// int
+// main()
+// {
+//         // setlocale(LC_ALL, "");
+//
+//         Window *window = window_create(0, 0, 10, 10);
+//         window_setall(window, "ñ");
+//         window_debug_term_print(window);
+//         sleep(1);
+//
+//         window_resize(window, 0, 0, 5, 5);
+//         window_setall(window, "0");
+//         window_debug_term_print(window);
+//         sleep(1);
+//
+//         window_resize(window, 0, 0, 10, 20);
+//         window_setall(window, ".");
+//         window_debug_term_print(window);
+//         sleep(1);
+//
+//         window_resize(window, 0, 0, 80, 40);
+//         window_setall(window, "?");
+//         window_debug_term_print(window);
+//         sleep(1);
+// }

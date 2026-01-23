@@ -1,7 +1,10 @@
 #ifndef PLUG_H_
 #define PLUG_H_ 1
 
-#include "minicoro.h"
+#include "../thirdparty/minicoro.h"
+
+#include "event.h"
+#include "window.h"
 
 /* Plugin: Stores info and status related to a plugin (forward declared) */
 typedef struct Plugin Plugin;
@@ -56,7 +59,7 @@ void mainloop();
  */
 
 /* Example: plugin.c
-* This program is a plugin that prints its status and has a child.
+ * This program is a plugin that prints its status and has a child.
  *
  * ```c
  * #include "plug_api.h"
@@ -77,6 +80,8 @@ void mainloop();
 /* Info about plugins. You don't have to touch anything from here */
 typedef struct Plugin {
         int (*main)(int, char **);
+        int (*event)(Event);
+        int (*render)(Window);
         char name[32];
         void *handle;
         mco_coro *co;

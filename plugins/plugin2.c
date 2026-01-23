@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "plug_api.h"
+#include "../src/plug_api.h"
 
 int
 main(int argc, char **argv)

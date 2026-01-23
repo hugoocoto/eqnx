@@ -1,25 +1,70 @@
-FLAGS = -Wall -Wextra -I. -ggdb
+WAYLAND_XDGSHELL_PATH = /usr/share/wayland-protocols/stable/xdg-shell
+WAYLAND_OUT_PATH = wayland-protocol
+OBJ_DIR = obj
+OUT = eqnx
 
-all: plugin.so plugin2.so main window.c test_window
-	# ./main
+SRC = $(wildcard src/*.c) $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c
+HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h thirdparty/minicoro.h
+OBJ = $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 
-main: main.o makefile
-	gcc $(FLAGS) main.o -o main -rdynamic
+CC = gcc
+FLAGS = -Wall -Wextra \
+-Wno-unused-parameter -Wno-unused-function -Wno-override-init \
+-ggdb -rdynamic
+LIBS = -lrt -lwayland-client -lxkbcommon -lm
 
-main.o: main.c makefile minicoro.h flag.h
-	gcc $(FLAGS) -c main.c -o main.o 
+.PHONY: all compile install uninstall clean
 
-plugin.so: plugin.c makefile main.c
-	gcc $(FLAGS) plugin.c -o plugin.so -shared
+all: compile
 
-plugin2.so: plugin2.c makefile main.c
-	gcc $(FLAGS) plugin2.c -o plugin2.so -shared
+compile: \
+	$(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \
+	$(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h \
+	$(OUT) \
+	plugins/plugin.so
 
-test_window: window.o
-	gcc $(FLAGS) window.o -o test_window
+$(OUT): $(OBJ) wc.txt
+	$(CC) $(FLAGS) $(OBJ) -o $(OUT) $(LIBS)
 
-window.o: window.c makefile 
-	gcc $(FLAGS) -c window.c -o window.o 
+$(OBJ_DIR)/%.o: %.c $(HEADERS) makefile
+	@mkdir -p $(dir $@)
+	$(CC) $(FLAGS) -c $< -o $@
 
-minicoro.h:
+plugins/plugin.so: plugins/plugin.c $(HEADERS) $(OBJ)
+	$(CC) $(FLAGS) -fPIC -shared $< -o $@
+
+plugins/plugin2.so: plugins/plugin2.c $(HEADERS) $(OBJ)
+	$(CC) $(FLAGS) -fPIC -shared $< -o $@
+
+$(WAYLAND_OUT_PATH)/xdg-shell-protocol.c: \
+	$(WAYLAND_XDGSHELL_PATH)/xdg-shell.xml
+	@mkdir -p $(WAYLAND_OUT_PATH)
+	wayland-scanner private-code $< $@
+
+$(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h: \
+	$(WAYLAND_XDGSHELL_PATH)/xdg-shell.xml
+	@mkdir -p $(WAYLAND_OUT_PATH)
+	wayland-scanner client-header $< $@
+
+install: /usr/local/man/man1/equinox.1
+
+/usr/local/man/man1/equinox.1: equinox.1
+	sudo install -g 0 -o 0 -m 0644 $< /usr/local/man/man1/
+	sudo gzip -f /usr/local/man/man1/equinox.1
+
+uninstall:
+	rm -rf /usr/local/man/man1/equinox*
+
+clean:
+	rm -rf \
+		$(WAYLAND_OUT_PATH) \
+		$(OBJ_DIR) \
+		$(OUT) \
+		plugins/plug.so
+
+wc.txt: $(SRC) $(HEADERS)
+	@ cloc `find src plugins -name "*.c" -o -name "*.h"` > wc.txt 2>/dev/null || \
+	wc `find src plugins -name "*.c" -o -name "*.h"` > wc.txt
+
+thirdparty/minicoro.h:
 	wget https://raw.githubusercontent.com/edubart/minicoro/refs/heads/main/minicoro.h
