@@ -77,10 +77,14 @@ void mainloop();
  * ```
  */
 
+// From plug_co.h
+extern void plug_send_kp_event(Plugin *p, int sym, int mods);
+
 /* Info about plugins. You don't have to touch anything from here */
 typedef struct Plugin {
         int (*main)(int, char **);
         int (*event)(Event);
+        int (*kp_event)(int sym, int mods);
         int (*render)(Window);
         char name[32];
         void *handle;

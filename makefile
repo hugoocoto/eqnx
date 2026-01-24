@@ -21,7 +21,7 @@ compile: \
 	$(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \
 	$(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h \
 	$(OUT) \
-	plugins/plugin.so
+	plugins/plugin.so plugins/plugin2.so
 
 $(OUT): $(OBJ) wc.txt
 	$(CC) $(FLAGS) $(OBJ) -o $(OUT) $(LIBS)

@@ -2,6 +2,7 @@
 #include <libgen.h>
 
 #include "plug_api.h"
+#include "plug_co.h"
 
 #define MINICORO_IMPL
 #include "../thirdparty/minicoro.h"
@@ -16,6 +17,7 @@
                 .main = plugin_default_main, \
                 .render = NULL,              \
                 .event = NULL,               \
+                .kp_event = NULL,            \
         }
 
 #define plugin_new() (memcpy(malloc(sizeof(Plugin)), \
@@ -107,14 +109,20 @@ plug_open(const char *plugdir)
                 return 0;
         }
 
+        char *s = strdup(plugdir);
+        strncpy(plug->name, basename(s), sizeof plug->name - 1);
+        free(s);
+
         plug->handle = handle;
         plug->main = dlsym(handle, "main") ?: (void *) plug->main;
         plug->event = dlsym(handle, "event") ?: (void *) plug->event;
         plug->render = dlsym(handle, "render") ?: (void *) plug->render;
-
-        char *s = strdup(plugdir);
-        strncpy(plug->name, basename(s), sizeof plug->name - 1);
-        free(s);
+        plug->kp_event = dlsym(handle, "kp_event") ?: (void *) plug->kp_event;
+        printf("plugin setup (%s):\n", plug->name);
+        printf("+ main: %p\n", plug->main);
+        printf("+ event: %p\n", plug->event);
+        printf("+ render: %p\n", plug->render);
+        printf("+ kp_event: %p\n", plug->kp_event);
 
         // Init plugin corrutine
         mco_desc desc = mco_desc_init(coro_entry, 0);
@@ -122,6 +130,13 @@ plug_open(const char *plugdir)
         assert(mco_create(&plug->co, &desc) == MCO_SUCCESS);
         assert(mco_status(plug->co) == MCO_SUSPENDED);
         return plug;
+}
+
+void
+plug_send_kp_event(Plugin *p, int sym, int mods)
+{
+        if (!p) return;
+        if (p->kp_event) p->kp_event(sym, mods);
 }
 
 void
@@ -135,12 +150,37 @@ plug_add_child(Plugin *parent, Plugin *child)
                 } else {
                         parent->children.capacity *= 2;
                 }
-                parent->children.data = realloc(parent->children.data,
-                                                sizeof(Plugin *) *
-                                                parent->children.capacity);
+                parent->children.data =
+                realloc(parent->children.data,
+                        sizeof(Plugin *) * parent->children.capacity);
         }
         parent->children.data[parent->children.count] = child;
         parent->children.count++;
+}
+
+int
+mco_suspended_handler(Plugin *p)
+{
+        PlugUpwardsCall call;
+        assert(mco_pop(p->co, &call, sizeof call) == MCO_SUCCESS);
+        switch (call.type) {
+        case RUN: {
+                char *plugdir;
+                assert(mco_pop(p->co, &plugdir, sizeof(char *)) == MCO_SUCCESS);
+                Plugin *plug = plug_open(plugdir);
+                if (!plug_exec(plug)) plug_add_child(p, plug);
+                assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
+                assert(mco_resume(p->co) == MCO_SUCCESS);
+        } break;
+
+        case MAINLOOP:
+                return 1;
+        default:
+                printf("Error %s:%d: unhandled branch (call type)%d!\n",
+                       __FILE__, __LINE__, call.type);
+                abort();
+        }
+        return 0;
 }
 
 int
@@ -155,30 +195,12 @@ plug_exec(Plugin *p)
                         /* This is executed only if a plugin main returns before
                          * mainloop() is called. */
                         assert(mco_destroy(p->co) == MCO_SUCCESS);
-                        printf("Invalid plugin: Don't forget to call mainloop()!\n");
+                        printf("Invalid plugin %s: Don't forget to call mainloop()!\n", p->name);
                         abort(); // Maybe not
 
-                case MCO_SUSPENDED: {
-                        PlugUpwardsCall call;
-                        assert(mco_pop(p->co, &call, sizeof call) == MCO_SUCCESS);
-                        switch (call.type) {
-                        case RUN: {
-                                char *plugdir;
-                                assert(mco_pop(p->co, &plugdir, sizeof(char *)) == MCO_SUCCESS);
-                                Plugin *plug = plug_open(plugdir);
-                                if (!plug_exec(plug)) plug_add_child(p, plug);
-                                assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
-                                assert(mco_resume(p->co) == MCO_SUCCESS);
-                        } break;
-
-                        case MAINLOOP:
-                                return 0;
-                        default:
-                                printf("Error %s:%d: unhandled branch (call type)%d!\n",
-                                       __FILE__, __LINE__, call.type);
-                                abort();
-                        }
-                } break;
+                case MCO_SUSPENDED:
+                        if (mco_suspended_handler(p)) return 0;
+                        break;
 
                 default:
                         printf("Error %s:%d: unhandled branch (co status)!\n",

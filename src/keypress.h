@@ -42,4 +42,47 @@ void debug_keypress_print(Keypress kp);
 void register_keypress(xkb_keysym_t sym, enum Key_mods mods, char repr[5]);
 void keypress_add_listener(Keypress_listener);
 
+bool kp_has_mod_Alt(Keypress kp);
+bool kp_has_mod_Alt_L(Keypress kp);
+bool kp_has_mod_Alt_R(Keypress kp);
+bool kp_has_mod_Caps_Lock(Keypress kp);
+bool kp_has_mod_Control(Keypress kp);
+bool kp_has_mod_Control_L(Keypress kp);
+bool kp_has_mod_Control_R(Keypress kp);
+bool kp_has_mod_Hyper(Keypress kp);
+bool kp_has_mod_Hyper_L(Keypress kp);
+bool kp_has_mod_Hyper_R(Keypress kp);
+bool kp_has_mod_Meta(Keypress kp);
+bool kp_has_mod_Meta_L(Keypress kp);
+bool kp_has_mod_Meta_R(Keypress kp);
+bool kp_has_mod_Shift(Keypress kp);
+bool kp_has_mod_Shift_L(Keypress kp);
+bool kp_has_mod_Shift_Lock(Keypress kp);
+bool kp_has_mod_Shift_R(Keypress kp);
+bool kp_has_mod_Super(Keypress kp);
+bool kp_has_mod_Super_L(Keypress kp);
+bool kp_has_mod_Super_R(Keypress kp);
+
+bool mod_has_Alt(int mods);
+bool mod_has_Alt_L(int mods);
+bool mod_has_Alt_R(int mods);
+bool mod_has_Caps_Lock(int mods);
+bool mod_has_Control(int mods);
+bool mod_has_Control_L(int mods);
+bool mod_has_Control_R(int mods);
+bool mod_has_Hyper(int mods);
+bool mod_has_Hyper_L(int mods);
+bool mod_has_Hyper_R(int mods);
+bool mod_has_Meta(int mods);
+bool mod_has_Meta_L(int mods);
+bool mod_has_Meta_R(int mods);
+bool mod_has_Shift(int mods);
+bool mod_has_Shift_L(int mods);
+bool mod_has_Shift_Lock(int mods);
+bool mod_has_Shift_R(int mods);
+bool mod_has_Super(int mods);
+bool mod_has_Super_L(int mods);
+bool mod_has_Super_R(int mods);
+
+
 #endif

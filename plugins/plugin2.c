@@ -3,6 +3,12 @@
 
 #include "../src/plug_api.h"
 
+void
+kp_event(int sym, int mods)
+{
+        printf("kp event from plugin 2\n");
+}
+
 int
 main(int argc, char **argv)
 {

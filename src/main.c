@@ -17,13 +17,7 @@ Plugin *p;
 void
 keypress_listener(Keypress kp)
 {
-        debug_keypress_print(kp);
-        assert(p);
-        if (p->event)
-                p->event((Event) {
-                .code = EventKp,
-                .kp = kp,
-                });
+        plug_send_kp_event(p, kp.sym, kp.mods);
 }
 
 
