@@ -1,6 +1,7 @@
 #ifndef KEYPRESS_H_
 #define KEYPRESS_H_ 1
 
+#include <stdint.h>
 #include <xkbcommon/xkbcommon.h>
 
 enum Key_mods {
@@ -33,13 +34,12 @@ enum Key_mods {
 typedef struct {
         enum Key_mods mods;
         xkb_keysym_t sym;
-        char utf8[5];
+        uint32_t codepoint;
 } Keypress;
 
 typedef void (*Keypress_listener)(Keypress);
 
-void debug_keypress_print(Keypress kp);
-void register_keypress(xkb_keysym_t sym, enum Key_mods mods, char repr[5]);
+void register_keypress(xkb_keysym_t sym, enum Key_mods mods, uint32_t codepoint);
 void keypress_add_listener(Keypress_listener);
 
 bool kp_has_mod_Alt(Keypress kp);

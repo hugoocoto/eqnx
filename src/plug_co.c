@@ -10,7 +10,6 @@
 #define EXPORTED // mark functions as part of the api
 #define UNUSED(x) ((void) (x))
 
-
 #define plugin_defaults                      \
         (Plugin)                             \
         {                                    \
@@ -19,6 +18,7 @@
                 .event = NULL,               \
                 .kp_event = NULL,            \
                 .resize = NULL,              \
+                .window = NULL,              \
         }
 
 #define plugin_new() (memcpy(malloc(sizeof(Plugin)), \

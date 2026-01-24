@@ -20,11 +20,13 @@ event_is_kp(Event e)
         return e.code == EventKp;
 }
 
+#include <stdlib.h>
+#include <string.h>
 char *
 event_kp_get_utf8(Event e)
 {
-        char *s = e.kp.utf8;
-        return e.code == EventKp ? s : "";
+        size_t len = strlen("No yet implemented") + 1;
+        return memcpy(malloc(len), "No yet implemented", len);
 }
 
 int

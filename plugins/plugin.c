@@ -16,7 +16,10 @@ void
 kp_event(int sym, int mods)
 {
         if (sym == 'A') printf("A pressed\n");
-        if (sym == XKB_KEY_space) printf("Space pressed\n");
+        if (sym == XKB_KEY_space) {
+                printf("Space pressed\n");
+                ask_for_redraw();
+        }
         plug_send_kp_event(child, sym, mods);
 }
 

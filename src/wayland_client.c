@@ -40,7 +40,7 @@ static bool has_pending_pointer = false;
 static char *current_title = NULL;
 static bool init = 0;
 
-typedef struct framebuffer {
+struct Framebuffer {
         struct wl_buffer *buffers[2];
         uint32_t *data;
         size_t capacity;
@@ -48,8 +48,7 @@ typedef struct framebuffer {
         int width, height;
         int stride;
         int current_idx;
-} Framebuffer;
-Framebuffer fb;
+} screen_fb;
 
 static int
 create_shm_file(off_t size)
@@ -66,16 +65,16 @@ create_shm_file(off_t size)
 static void
 fb_destroy()
 {
-        if (fb.buffers[0]) wl_buffer_destroy(fb.buffers[0]);
-        if (fb.buffers[1]) wl_buffer_destroy(fb.buffers[1]);
-        fb.buffers[0] = NULL;
-        fb.buffers[1] = NULL;
+        if (screen_fb.buffers[0]) wl_buffer_destroy(screen_fb.buffers[0]);
+        if (screen_fb.buffers[1]) wl_buffer_destroy(screen_fb.buffers[1]);
+        screen_fb.buffers[0] = NULL;
+        screen_fb.buffers[1] = NULL;
 
-        if (fb.data) munmap(fb.data, fb.capacity);
-        fb.data = NULL;
+        if (screen_fb.data) munmap(screen_fb.data, screen_fb.capacity);
+        screen_fb.data = NULL;
 
-        if (fb.fd >= 0) close(fb.fd);
-        fb.fd = -1;
+        if (screen_fb.fd >= 0) close(screen_fb.fd);
+        screen_fb.fd = -1;
 }
 
 static int
@@ -84,27 +83,27 @@ init_buffers(int w, int h, int stride)
         size_t page_size = stride * h;
         size_t total_size = page_size * 2;
 
-        if (fb.capacity < total_size || fb.fd < 0) {
+        if (screen_fb.capacity < total_size || screen_fb.fd < 0) {
                 fb_destroy();
-                fb.fd = create_shm_file(total_size);
-                if (fb.fd < 0) return -1;
+                screen_fb.fd = create_shm_file(total_size);
+                if (screen_fb.fd < 0) return -1;
 
-                fb.data = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_SHARED, fb.fd, 0);
-                if (fb.data == MAP_FAILED) {
-                        close(fb.fd);
+                screen_fb.data = mmap(NULL, total_size, PROT_READ | PROT_WRITE, MAP_SHARED, screen_fb.fd, 0);
+                if (screen_fb.data == MAP_FAILED) {
+                        close(screen_fb.fd);
                         return -1;
                 }
-                fb.capacity = total_size;
+                screen_fb.capacity = total_size;
 
         } else {
-                if (fb.buffers[0]) wl_buffer_destroy(fb.buffers[0]);
-                if (fb.buffers[1]) wl_buffer_destroy(fb.buffers[1]);
+                if (screen_fb.buffers[0]) wl_buffer_destroy(screen_fb.buffers[0]);
+                if (screen_fb.buffers[1]) wl_buffer_destroy(screen_fb.buffers[1]);
         }
 
-        struct wl_shm_pool *pool = wl_shm_create_pool(shm, fb.fd, fb.capacity);
+        struct wl_shm_pool *pool = wl_shm_create_pool(shm, screen_fb.fd, screen_fb.capacity);
 
-        fb.buffers[0] = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_ARGB8888);
-        fb.buffers[1] = wl_shm_pool_create_buffer(pool, page_size, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        screen_fb.buffers[0] = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        screen_fb.buffers[1] = wl_shm_pool_create_buffer(pool, page_size, w, h, stride, WL_SHM_FORMAT_ARGB8888);
 
         wl_shm_pool_destroy(pool);
         return 0;
@@ -113,41 +112,48 @@ init_buffers(int w, int h, int stride)
 static int
 fb_create(int w, int h)
 {
-        fb = (Framebuffer) {
+        screen_fb = (struct Framebuffer) {
                 .width = w,
                 .height = h,
                 .stride = w * 4, // ARGB
                 .fd = -1,
         };
 
-        return init_buffers(w, h, fb.stride);
+        return init_buffers(w, h, screen_fb.stride);
 }
 
 static int
 fb_resize(int w, int h)
 {
         if (w <= 0 || h <= 0) return 1;
-        if (w == fb.width && h == fb.height) return 0;
+        if (w == screen_fb.width && h == screen_fb.height) return 0;
 
-        fb.width = w;
-        fb.height = h;
-        fb.stride = w * 4;
+        screen_fb.width = w;
+        screen_fb.height = h;
+        screen_fb.stride = w * 4;
 
-        return init_buffers(w, h, fb.stride);
+        return init_buffers(w, h, screen_fb.stride);
+}
+
+void
+fb_get_size(int *w, int *h)
+{
+        *w = screen_fb.width;
+        *h = screen_fb.height;
 }
 
 uint32_t *
 fb_get_active_data()
 {
-        size_t offset_pixels = fb.current_idx * (fb.width * fb.height);
-        return fb.data + offset_pixels;
+        size_t offset_pixels = screen_fb.current_idx * (screen_fb.width * screen_fb.height);
+        return screen_fb.data + offset_pixels;
 }
 
 int
 fb_clear(uint32_t color)
 {
         uint32_t *pixels = fb_get_active_data();
-        size_t count = fb.width * fb.height;
+        size_t count = screen_fb.width * screen_fb.height;
         for (size_t i = 0; i < count; ++i) {
                 pixels[i] = color;
         }
@@ -157,13 +163,13 @@ fb_clear(uint32_t color)
 void
 fb_swap()
 {
-        fb.current_idx = 1 - fb.current_idx;
+        screen_fb.current_idx = 1 - screen_fb.current_idx;
 }
 
 struct wl_buffer *
 fb_get_ready_buffer()
 {
-        return fb.buffers[fb.current_idx];
+        return screen_fb.buffers[screen_fb.current_idx];
 }
 
 static void
@@ -296,9 +302,8 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint3
         case WL_KEYBOARD_KEY_STATE_PRESSED:
                 switch (sym) {
                 default: {
-                        char buf[5] = { 0 };
-                        xkb_state_key_get_utf8(xkb_state, keycode, buf, sizeof(buf));
-                        register_keypress(sym, mods, buf);
+                        uint32_t codepoint = xkb_state_key_get_utf32(xkb_state, keycode);
+                        register_keypress(sym, mods, codepoint);
                 } break;
                 case XKB_KEY_Shift_L: mods |= Mod_Shift_L; return;
                 case XKB_KEY_Shift_R: mods |= Mod_Shift_R; return;
@@ -388,10 +393,10 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 static void
 xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
 {
-        int new_w = (pending_width > 0) ? pending_width : fb.width;
-        int new_h = (pending_height > 0) ? pending_height : fb.height;
+        int new_w = (pending_width > 0) ? pending_width : screen_fb.width;
+        int new_h = (pending_height > 0) ? pending_height : screen_fb.height;
 
-        if (new_w != fb.width || new_h != fb.height) {
+        if (new_w != screen_fb.width || new_h != screen_fb.height) {
                 fb_resize(new_w, new_h);
                 notify_resize_event(new_w, new_h);
         }
@@ -547,7 +552,7 @@ wayland_present(void)
         if (should_quit || !surface) return;
         struct wl_buffer *buffer = fb_get_ready_buffer();
         wl_surface_attach(surface, buffer, 0, 0);
-        wl_surface_damage(surface, 0, 0, fb.width, fb.height);
+        wl_surface_damage(surface, 0, 0, screen_fb.width, screen_fb.height);
         wl_surface_commit(surface);
         fb_swap();
 }
