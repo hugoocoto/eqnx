@@ -7,6 +7,12 @@
 Plugin *child;
 
 void
+resize(int w, int h)
+{
+        printf("New size: %d %d\n", w, h);
+}
+
+void
 kp_event(int sym, int mods)
 {
         if (sym == 'A') printf("A pressed\n");

@@ -1,5 +1,19 @@
 #include "event.h"
 
+static Resize_Listener resize_listener;
+
+void
+add_resize_listener(Resize_Listener rl)
+{
+        resize_listener = rl;
+}
+
+void
+notify_resize_event(int w, int h)
+{
+        if (resize_listener) resize_listener(w, h);
+}
+
 bool
 event_is_kp(Event e)
 {

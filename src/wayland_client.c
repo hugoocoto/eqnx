@@ -8,10 +8,11 @@
 #include <unistd.h>
 
 #include "../wayland-protocol/xdg-shell-client-protocol.h"
+#include "event.h"
 #include "keypress.h"
 #include "wayland_client.h"
 
-#define TITLE "Equinox"
+#define TITLE "Untitled"
 
 static struct wl_compositor *compositor;
 static struct wl_display *display;
@@ -392,6 +393,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t seri
 
         if (new_w != fb.width || new_h != fb.height) {
                 fb_resize(new_w, new_h);
+                notify_resize_event(new_w, new_h);
         }
 
         xdg_surface_ack_configure(xdg_surface, serial);

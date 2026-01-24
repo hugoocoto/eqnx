@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "event.h"
 #include "flag.h"
 #include "keypress.h"
 #include "plug_api.h"
@@ -14,20 +15,26 @@
 
 Plugin *p;
 
-void
+static void
 keypress_listener(Keypress kp)
 {
         plug_send_kp_event(p, kp.sym, kp.mods);
 }
 
+static void
+resize_listener(int w, int h)
+{
+        plug_send_resize_event(p, w, h);
+}
 
-int
+static int
 loop(char *ppath)
 {
         printf("(main.c: plugin -> %s)\n", ppath);
         p = plug_open(ppath);
         if (plug_exec(p)) return 1;
         keypress_add_listener(keypress_listener);
+        add_resize_listener(resize_listener);
 
         for (;;) {
                 if (wayland_dispatch_events()) {

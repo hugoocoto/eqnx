@@ -18,6 +18,7 @@
                 .render = NULL,              \
                 .event = NULL,               \
                 .kp_event = NULL,            \
+                .resize = NULL,              \
         }
 
 #define plugin_new() (memcpy(malloc(sizeof(Plugin)), \
@@ -117,11 +118,13 @@ plug_open(const char *plugdir)
         plug->main = dlsym(handle, "main") ?: (void *) plug->main;
         plug->event = dlsym(handle, "event") ?: (void *) plug->event;
         plug->render = dlsym(handle, "render") ?: (void *) plug->render;
+        plug->resize = dlsym(handle, "resize") ?: (void *) plug->resize;
         plug->kp_event = dlsym(handle, "kp_event") ?: (void *) plug->kp_event;
         printf("plugin setup (%s):\n", plug->name);
         printf("+ main: %p\n", plug->main);
         printf("+ event: %p\n", plug->event);
         printf("+ render: %p\n", plug->render);
+        printf("+ resize: %p\n", plug->resize);
         printf("+ kp_event: %p\n", plug->kp_event);
 
         // Init plugin corrutine
@@ -130,6 +133,13 @@ plug_open(const char *plugdir)
         assert(mco_create(&plug->co, &desc) == MCO_SUCCESS);
         assert(mco_status(plug->co) == MCO_SUSPENDED);
         return plug;
+}
+
+void
+plug_send_resize_event(Plugin *p, int w, int h)
+{
+        if (!p) return;
+        if (p->resize) p->resize(w, h);
 }
 
 void

@@ -79,6 +79,7 @@ void mainloop();
 
 // From plug_co.h
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
+extern void plug_send_resize_event(Plugin *p, int w, int h);
 
 /* Info about plugins. You don't have to touch anything from here */
 typedef struct Plugin {
@@ -86,6 +87,7 @@ typedef struct Plugin {
         int (*event)(Event);
         int (*kp_event)(int sym, int mods);
         int (*render)(Window);
+        int (*resize)(int w, int h);
         char name[32];
         void *handle;
         mco_coro *co;

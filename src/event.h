@@ -21,6 +21,10 @@ char *event_kp_get_utf8(Event e);
 int event_kp_get_sym(Event e);
 int event_kp_get_mods(Event e);
 
+typedef void (*Resize_Listener)(int, int);
+void add_resize_listener(Resize_Listener rl);
+void notify_resize_event(int w, int h);
+
 bool event_kp_has_mod_Alt(Event e);
 bool event_kp_has_mod_Control(Event e);
 bool event_kp_has_mod_Hyper(Event e);
