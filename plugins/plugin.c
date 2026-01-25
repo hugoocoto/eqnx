@@ -5,6 +5,7 @@
 #include "../src/plug_api.h"
 
 Plugin *child;
+int last_pressed_char = ' ';
 
 void
 resize(int w, int h)
@@ -15,18 +16,20 @@ resize(int w, int h)
 void
 kp_event(int sym, int mods)
 {
-        if (sym == 'A') printf("A pressed\n");
-        if (sym == XKB_KEY_space) {
-                printf("Space pressed\n");
-                ask_for_redraw();
-        }
+        last_pressed_char = sym;
         plug_send_kp_event(child, sym, mods);
+        ask_for_redraw();
 }
+
+Window *my_window;
 
 void
 render()
 {
+        assert(my_window);
         printf("PLUGIN: render\n");
+        if (last_pressed_char) window_setall(my_window, last_pressed_char);
+        draw_window(my_window);
 }
 
 int
@@ -34,7 +37,8 @@ main(int argc, char **argv)
 {
         assert(argc == 1);
         printf("(Plugin: %s) Hello!\n", argv[0]);
-        child = plug_run("./plugins/plugin2.so");
+        my_window = request_window();
+        printf("Plugin window: %p\n", my_window);
         mainloop();
         printf("(Plugin: %s) returns\n", argv[0]);
         return 0;

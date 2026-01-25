@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "draw.h"
 #include "event.h"
 #include "flag.h"
 #include "keypress.h"
@@ -45,18 +44,20 @@ static int
 init_loop(char *ppath)
 {
         printf("(main.c: plugin -> %s)\n", ppath);
-        p = plug_open(ppath);
-        if (plug_exec(p)) return 1;
-        keypress_add_listener(keypress_listener);
-        add_resize_listener(resize_listener);
 
-        // debugging
+        p = plug_open(ppath);
+
         screen_window = create_fullscreen_window();
+        printf("Main window: %p\n", screen_window);
         p->window = screen_window;
         assert(p->window);
 
+        if (plug_exec(p)) return 1;
 
-        unsigned long frame = 0;
+        add_keypress_listener(keypress_listener);
+        add_resize_listener(resize_listener);
+
+        // unsigned long frame = 0;
         for (;;) {
                 if (wayland_dispatch_events()) {
                         printf("Wayland ask to close\n");
@@ -64,17 +65,14 @@ init_loop(char *ppath)
                 }
 
                 if (need_redraw) {
-                        fb_clear(0xFF000000);
-                        int cp = utf8_to_codepoint("A", 0);
-                        assert(cp == 'A');
-                        window_setall(p->window, cp);
-                        draw_window(p->window);
-
-                        wayland_present();
                         need_redraw = false;
+                        fb_clear(0xFF000000);
+                        if (p->render) p->render();
+                        wayland_present();
+                        printf("wayland presents\n");
                 }
 
-                printf("New frame %lu!\n", ++frame);
+                // printf("New frame %lu!\n", ++frame);
         }
 
         plug_release(p);
@@ -103,10 +101,9 @@ main(int argc, char **argv)
                 printf("Can not open wayland display!\n");
                 exit(1);
         }
+
         wayland_set_title("Eqnx");
-
         init_loop(ppath);
-
         wayland_cleanup();
 
         return 0;

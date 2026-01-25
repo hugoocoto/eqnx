@@ -3,6 +3,7 @@
 
 #include "../thirdparty/minicoro.h"
 
+#include "draw.h"
 #include "event.h"
 #include "window.h"
 
@@ -81,13 +82,14 @@ void mainloop();
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
 extern void plug_send_resize_event(Plugin *p, int w, int h);
 extern void ask_for_redraw();
+extern Window *request_window();
 
 /* Info about plugins. You don't have to touch anything from here */
 typedef struct Plugin {
         int (*main)(int, char **);
         int (*event)(Event);
         int (*kp_event)(int sym, int mods);
-        int (*render)(Window);
+        int (*render)();
         int (*resize)(int w, int h);
         char name[32];
         void *handle;

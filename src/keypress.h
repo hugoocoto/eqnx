@@ -40,7 +40,7 @@ typedef struct {
 typedef void (*Keypress_listener)(Keypress);
 
 void register_keypress(xkb_keysym_t sym, enum Key_mods mods, uint32_t codepoint);
-void keypress_add_listener(Keypress_listener);
+void add_keypress_listener(Keypress_listener);
 
 bool kp_has_mod_Alt(Keypress kp);
 bool kp_has_mod_Alt_L(Keypress kp);

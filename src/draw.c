@@ -131,11 +131,11 @@ alpha_blend_inplace(uint32_t *dest, uint32_t new, float alpha, float alpha_range
         *dest = a << 24 | r << 16 | g << 8 | b;
 }
 
-#define GLYPH_CACHE_SIZE 1024
 
 unsigned char *
 get_fontcp(Font *f, uint32_t cp, int *xx, int *yy, int *bw, int *bh, int *ax, int *lsb)
 {
+/*   */ #define GLYPH_CACHE_SIZE 1024
         static struct {
                 uint32_t codepoint;
                 unsigned char *bitmap;

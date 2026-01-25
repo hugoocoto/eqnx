@@ -30,6 +30,7 @@ typedef struct PlugUpwardsCall {
         enum {
                 MAINLOOP,
                 RUN,
+                WINDOW_REQUEST,
         } type;
 } PlugUpwardsCall;
 
@@ -42,11 +43,23 @@ plug_run(char *plugpath)
                 .arg = plugpath,
         };
 
-        assert(mco_push(mco_running(), &plugpath, sizeof(char *)) == MCO_SUCCESS);
         assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
         assert(mco_yield(mco_running()) == MCO_SUCCESS);
         assert(mco_pop(mco_running(), &plug, sizeof(Plugin *)) == MCO_SUCCESS);
         return plug;
+}
+
+Window *
+request_window()
+{
+        Window *win;
+        PlugUpwardsCall call = (PlugUpwardsCall) {
+                .type = WINDOW_REQUEST,
+        };
+        assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
+        assert(mco_yield(mco_running()) == MCO_SUCCESS);
+        assert(mco_pop(mco_running(), &win, sizeof(Window *)) == MCO_SUCCESS);
+        return win;
 }
 
 EXPORTED void
@@ -173,18 +186,23 @@ mco_suspended_handler(Plugin *p)
 {
         PlugUpwardsCall call;
         assert(mco_pop(p->co, &call, sizeof call) == MCO_SUCCESS);
+
         switch (call.type) {
         case RUN: {
-                char *plugdir;
-                assert(mco_pop(p->co, &plugdir, sizeof(char *)) == MCO_SUCCESS);
-                Plugin *plug = plug_open(plugdir);
+                Plugin *plug = plug_open(call.arg);
                 if (!plug_exec(plug)) plug_add_child(p, plug);
                 assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
                 assert(mco_resume(p->co) == MCO_SUCCESS);
         } break;
 
+        case WINDOW_REQUEST: {
+                assert(mco_push(p->co, &p->window, sizeof(Window *)) == MCO_SUCCESS);
+                assert(mco_resume(p->co) == MCO_SUCCESS);
+        } break;
+
         case MAINLOOP:
                 return 1;
+
         default:
                 printf("Error %s:%d: unhandled branch (call type)%d!\n",
                        __FILE__, __LINE__, call.type);
