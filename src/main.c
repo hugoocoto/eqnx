@@ -17,8 +17,9 @@ extern void draw_window(Window *win);
  * plugin called from here */
 #define INIT_PLUGIN "./plugins/plugin.so"
 
+static Plugin *p;
+static Window *screen_window;
 static bool need_redraw = false;
-Plugin *p;
 
 void
 ask_for_redraw()
@@ -35,7 +36,9 @@ keypress_listener(Keypress kp)
 static void
 resize_listener(int w, int h)
 {
+        window_resize_px(screen_window, h, w);
         plug_send_resize_event(p, w, h);
+        ask_for_redraw();
 }
 
 static int
@@ -48,7 +51,8 @@ init_loop(char *ppath)
         add_resize_listener(resize_listener);
 
         // debugging
-        p->window = create_fullscreen_window();
+        screen_window = create_fullscreen_window();
+        p->window = screen_window;
         assert(p->window);
 
 

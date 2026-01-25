@@ -67,6 +67,26 @@ window_create(int x, int y, int h, int w)
         return window;
 }
 
+int
+window_resize_px(Window *window, int fb_h, int fb_w)
+{
+        assert(fb_w > 0 && fb_h > 0);
+
+        Font *f = get_default_font();
+        assert(f != NULL);
+
+        int grid_height = f->l_h;
+        int ax, lsb;
+        stbtt_GetCodepointHMetrics(&f->info, 'A', &ax, &lsb);
+        int grid_width = roundf(ax * f->scale);
+
+        assert(grid_height > 0 && grid_width > 0);
+
+        int rows = fb_h / grid_height;
+        int cols = fb_w / grid_width;
+
+        return window_resize(window, 0, 0, rows, cols);
+}
 
 Window *
 create_fullscreen_window()
