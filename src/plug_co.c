@@ -141,7 +141,7 @@ plug_open(const char *plugdir)
         // Init plugin corrutine
         mco_desc desc = mco_desc_init(coro_entry, 0);
         desc.user_data = plug;
-        assert(mco_create(&plug->co, &desc) == MCO_SUCCESS);
+        assert(mco_create((mco_coro **) &plug->co, &desc) == MCO_SUCCESS);
         assert(mco_status(plug->co) == MCO_SUSPENDED);
         return plug;
 }

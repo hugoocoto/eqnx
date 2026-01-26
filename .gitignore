@@ -5,3 +5,4 @@ plugins/plugin2.so
 plugins/plugin.so
 plugins/*.so
 .gitignore
+wc.txt

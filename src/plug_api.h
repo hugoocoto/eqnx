@@ -1,8 +1,6 @@
 #ifndef PLUG_H_
 #define PLUG_H_ 1
 
-#include "../thirdparty/minicoro.h"
-
 #include "draw.h"
 #include "event.h"
 #include "window.h"
@@ -39,45 +37,6 @@ Plugin *plug_run(char *plugpath);
  * is going to start receiving events. */
 void mainloop();
 
-/* How to create a plugin:
- *
- * First, create a C program (or any other compiled language that supports C
- * shared library abi, bindings are not implemented yet).
- *
- * This program has to have a `int main(int, char**)` function, as any C
- * program. This function is the plugin entry point. It should be used to
- * initialize things, then run `mainloop()` and then deinitialize (or destroy)
- * those things (as any C program). See below for an example.
- *
- * Then, you can define other functions like `event(Event event)` (not yet
- * implemented, but it's the idea) to catch events. Plugins have to work as
- * action-reaction engines, in the sense that they can't have loop-like logic
- * (because mainloop() blocks the program thread until the program has to exit).
- *
- * All the logic related to this API runs on a single thread, it's not thread
- * safe, so any logic implemented in another thread should not interact with
- * this API. All the API calls have to be done from the main thread.
- */
-
-/* Example: plugin.c
- * This program is a plugin that prints its status and has a child.
- *
- * ```c
- * #include "plug_api.h"
- *
- * int
- * main(int argc, char **argv)
- * {
- *         assert(argc == 1);
- *         printf("(Plugin: %s) Hello!\n", argv[0]);
- *         plug_run("./plugin2.so");
- *         mainloop();
- *         printf("(Plugin: %s) returns\n", argv[0]);
- *         return 0;
- * }
- * ```
- */
-
 // From plug_co.h
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
 extern void plug_send_resize_event(Plugin *p, int w, int h);
@@ -86,15 +45,15 @@ extern Window *request_window();
 
 /* Info about plugins. You don't have to touch anything from here */
 typedef struct Plugin {
-        int (*main)(int, char **);
-        int (*event)(Event);
-        int (*kp_event)(int sym, int mods);
-        int (*render)();
-        int (*resize)(int w, int h);
         char name[32];
+        int (*main)(int, char **);          // int main(int, char **);
+        int (*event)(Event);                // int event(Event);
+        int (*kp_event)(int sym, int mods); // int kp_event(int sym, int mods);
+        int (*render)();                    // int render();
+        int (*resize)(int w, int h);        // int resize(int w, int h);
         void *handle;
         Window *window;
-        mco_coro *co;
+        void *co;
         struct {
                 struct Plugin **data;
                 int capacity;
