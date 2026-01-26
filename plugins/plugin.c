@@ -15,6 +15,10 @@ resize(int w, int h)
 void
 kp_event(int sym, int mods)
 {
+        if (sym == ' ') {
+                assert(fb_capture("screen_capture.png"));
+                return;
+        }
         last_pressed_char = sym;
         ask_for_redraw();
 }

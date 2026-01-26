@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
+#include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +14,7 @@
 #include "keypress.h"
 #include "wayland_client.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../thirdparty/stb_image_write.h"
 
 #define TITLE "Untitled"
@@ -55,7 +58,7 @@ struct Framebuffer {
 static int
 create_shm_file(off_t size)
 {
-        int fd = memfd_create("wl-eqnx", MFD_CLOEXEC);
+        int fd = memfd_create("wl-eqnx", FD_CLOEXEC);
         if (fd < 0) return -1;
         if (ftruncate(fd, size) < 0) {
                 close(fd);
@@ -137,10 +140,12 @@ fb_resize(int w, int h)
         return init_buffers(w, h, screen_fb.stride);
 }
 
-// screen-capture the framebuffer
-void
-fb_capture(char *path)
+// screen-capture the framebuffer. Returns the same as stbi_write_png.
+int
+fb_capture(char *filename)
 {
+        return stbi_write_png(filename, screen_fb.width, screen_fb.height,
+                              4, fb_get_unactive_data(), screen_fb.stride);
 }
 
 void
@@ -148,6 +153,14 @@ fb_get_size(int *w, int *h)
 {
         *w = screen_fb.width;
         *h = screen_fb.height;
+}
+
+uint32_t *
+fb_get_unactive_data()
+{
+        size_t offset_pixels = (1 - screen_fb.current_idx) *
+                               (screen_fb.width * screen_fb.height);
+        return screen_fb.data + offset_pixels;
 }
 
 uint32_t *

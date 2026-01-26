@@ -42,6 +42,7 @@ extern void plug_send_kp_event(Plugin *p, int sym, int mods);
 extern void plug_send_resize_event(Plugin *p, int w, int h);
 extern void ask_for_redraw();
 extern Window *request_window();
+int fb_capture(char *filename); // just to test screen capturing
 
 /* Info about plugins. You don't have to touch anything from here */
 typedef struct Plugin {

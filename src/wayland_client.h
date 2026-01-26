@@ -13,7 +13,8 @@ void wayland_set_title(char *title);
 
 /* Framebuffer things */
 int fb_clear(uint32_t color);
-uint32_t *fb_get_active_data();
 void fb_get_size(int *w, int *h);
+uint32_t *fb_get_active_data();
+uint32_t *fb_get_unactive_data(); // just because (use fb_get_active_data instead)
 
 #endif
