@@ -10,20 +10,22 @@
 #define EXPORTED // mark functions as part of the api
 #define UNUSED(x) ((void) (x))
 
-#define plugin_defaults                      \
-        (Plugin)                             \
-        {                                    \
-                .main = plugin_default_main, \
-                .render = NULL,              \
-                .event = NULL,               \
-                .kp_event = NULL,            \
-                .resize = NULL,              \
-                .window = NULL,              \
-        }
 
-#define plugin_new() (memcpy(malloc(sizeof(Plugin)), \
-                             &plugin_defaults,       \
-                             sizeof(Plugin)))
+int plugin_default_main(int argc, char **argv);
+
+#define X(name) .name = NULL,
+static Plugin *
+plugin_new()
+{
+        return memcpy(malloc(sizeof(Plugin)),
+                      &(Plugin) {
+                      // default values
+                      .main = plugin_default_main,
+                      .window = NULL,
+                      LIST_OF_CALLBACKS },
+                      sizeof(Plugin));
+}
+#undef X
 
 typedef struct PlugUpwardsCall {
         void *arg;
@@ -128,17 +130,13 @@ plug_open(const char *plugdir)
         free(s);
 
         plug->handle = handle;
-        plug->main = dlsym(handle, "main") ?: (void *) plug->main;
-        plug->event = dlsym(handle, "event") ?: (void *) plug->event;
-        plug->render = dlsym(handle, "render") ?: (void *) plug->render;
-        plug->resize = dlsym(handle, "resize") ?: (void *) plug->resize;
-        plug->kp_event = dlsym(handle, "kp_event") ?: (void *) plug->kp_event;
         printf("plugin setup (%s):\n", plug->name);
-        printf("+ main: %p\n", plug->main);
-        printf("+ event: %p\n", plug->event);
-        printf("+ render: %p\n", plug->render);
-        printf("+ resize: %p\n", plug->resize);
-        printf("+ kp_event: %p\n", plug->kp_event);
+
+/*   */ #define X(name)                                           \
+        plug->name = dlsym(handle, #name) ?: (void *) plug->name; \
+        printf("+ %s: %p\n", #name, plug->name);
+        LIST_OF_CALLBACKS
+/*   */ #undef X
 
         // Init plugin corrutine
         mco_desc desc = mco_desc_init(coro_entry, 0);
