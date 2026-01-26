@@ -10,6 +10,11 @@
 #include "wayland_client.h"
 #include "window.h"
 
+#ifndef VERSION
+// version is defined in makefile
+#define VERSION "unknown"
+#endif
+
 extern void draw_window(Window *win);
 
 /* This plugin is the entry point of the program, it's the first and unique
@@ -92,7 +97,7 @@ main(int argc, char **argv)
                 flag_show_help(STDOUT_FILENO);
                 exit(1);
         } else if (v) {
-                printf("Version: 0.0.0\n");
+                printf("Eqnx version %s\n", VERSION);
                 exit(0);
         }
 

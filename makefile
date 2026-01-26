@@ -1,24 +1,31 @@
+#
+# EQNX makefile
+#
+
+MAJOR = 0
+MINOR = 0
+PATCH = 1 
+INFO = dev (pre-release)
+VERSION = "\"$(MAJOR).$(MINOR).$(PATCH)-$(INFO)\""
+
 WAYLAND_XDGSHELL_PATH = /usr/share/wayland-protocols/stable/xdg-shell
 WAYLAND_OUT_PATH = wayland-protocol
 OBJ_DIR = obj
 OUT = eqnx
 
+CC = gcc
+FLAGS = -Wall -Wextra -Wno-unused-parameter -ggdb -rdynamic -fPIC
+LIBS = -lrt -lwayland-client -lxkbcommon -lm -lfontconfig
+
 SRC = $(wildcard src/*.c) $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c
+OBJ = $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h \
 thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h config.h
 
-OBJ = $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
-
-CC = gcc
-FLAGS = -Wall -Wextra \
-  -Wno-unused-parameter -Wno-unused-function -Wno-override-init \
-  -ggdb -rdynamic
-LIBS = -lrt -lwayland-client -lxkbcommon -lm -lfontconfig
 
 .PHONY: all compile install uninstall clean
 
 all: compile
-
 compile: \
 	$(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \
 	$(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h \
@@ -26,11 +33,11 @@ compile: \
 	plugins/plugin.so plugins/plugin2.so
 
 $(OUT): $(OBJ) wc.txt
-	$(CC) $(FLAGS) $(OBJ) -o $(OUT) $(LIBS)
+	$(CC) $(FLAGS) $(OBJ) -o $(OUT) $(LIBS) 
 
 $(OBJ_DIR)/%.o: %.c $(HEADERS) makefile
 	@mkdir -p $(dir $@)
-	$(CC) $(FLAGS) -c $< -o $@
+	$(CC) $(FLAGS) -c $< -o $@ -DVERSION=$(VERSION)
 
 plugins/plugin.so: plugins/plugin.c $(HEADERS) $(OBJ)
 	$(CC) $(FLAGS) -fPIC -shared $< -o $@
@@ -48,14 +55,15 @@ $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h: \
 	@mkdir -p $(WAYLAND_OUT_PATH)
 	wayland-scanner client-header $< $@
 
-install: /usr/local/man/man1/equinox.1
+install: /usr/local/man/man1/eqnx.1
+	@ # Todo: install eqnx
 
-/usr/local/man/man1/equinox.1: equinox.1
+/usr/local/man/man1/eqnx.1: eqnx.1
 	sudo install -g 0 -o 0 -m 0644 $< /usr/local/man/man1/
-	sudo gzip -f /usr/local/man/man1/equinox.1
+	sudo gzip -f /usr/local/man/man1/eqnx.1
 
 uninstall:
-	rm -rf /usr/local/man/man1/equinox*
+	rm -rf /usr/local/man/man1/eqnx*
 
 clean:
 	rm -rf \
