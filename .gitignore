@@ -6,3 +6,4 @@ plugins/plugin.so
 plugins/*.so
 .gitignore
 wc.txt
+st
