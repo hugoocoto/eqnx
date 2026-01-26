@@ -8,20 +8,22 @@ PATCH = 1
 INFO = dev (pre-release)
 VERSION = "\"$(MAJOR).$(MINOR).$(PATCH)-$(INFO)\""
 
-WAYLAND_XDGSHELL_PATH = /usr/share/wayland-protocols/stable/xdg-shell
-WAYLAND_OUT_PATH = wayland-protocol
-OBJ_DIR = obj
 OUT = eqnx
 
 CC = gcc
 FLAGS = -Wall -Wextra -Wno-unused-parameter -ggdb -rdynamic -fPIC
 LIBS = -lrt -lwayland-client -lxkbcommon -lm -lfontconfig
 
+# Hardcoded path: fix this if it's possible
+WAYLAND_XDGSHELL_PATH = /usr/share/wayland-protocols/stable/xdg-shell
+
 SRC = $(wildcard src/*.c) $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c
 OBJ = $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
-HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h \
-thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h config.h
+HEADERS = $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h \
+  $(wildcard src/*.h thirdparty/*.h) config.h
 
+OBJ_DIR = obj
+WAYLAND_OUT_PATH = wayland-protocol
 
 .PHONY: all compile install uninstall clean
 
@@ -72,9 +74,7 @@ clean:
 		$(OUT) \
 		plugins/plug.so
 
-wc.txt: $(SRC) $(HEADERS)
-	@ cloc `find src plugins -name "*.c" -o -name "*.h"` > wc.txt 2>/dev/null || \
-	wc `find src plugins -name "*.c" -o -name "*.h"` > wc.txt
+# You can update deps by removing them from ./thirdparty/ and building all again
 
 thirdparty/minicoro.h:
 	@ mkdir -p thirdparty
@@ -87,4 +87,3 @@ thirdparty/stb_image_write.h:
 thirdparty/stb_truetype.h: 
 	@ mkdir -p thirdparty
 	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_truetype.h -O thirdparty/stb_truetype.h
-
