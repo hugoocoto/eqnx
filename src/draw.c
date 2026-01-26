@@ -1,3 +1,4 @@
+#include "../config.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -64,9 +65,8 @@ Font *
 get_default_font()
 {
         static Font *def = NULL;
-        const char *const fontpath = "/usr/share/fonts/TTF/DejaVuSans.ttf";
         if (def) return def;
-        def = load_font(fontpath, 32);
+        def = load_font(fontpath, font_size);
         assert(def);
         printf("Font: %s loaded\n", fontpath);
         return def;

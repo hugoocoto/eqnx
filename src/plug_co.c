@@ -20,7 +20,6 @@ plugin_new()
         return memcpy(malloc(sizeof(Plugin)),
                       &(Plugin) {
                       // default values
-                      .main = plugin_default_main,
                       .window = NULL,
                       LIST_OF_CALLBACKS },
                       sizeof(Plugin));
@@ -79,6 +78,7 @@ void
 coro_entry(mco_coro *co)
 {
         Plugin *plug = mco_get_user_data(co);
+        if (!plug->main) plug->main = plugin_default_main;
         int status = plug->main(1, (char *[]) { plug->name });
         // main returns here
         UNUSED(status);

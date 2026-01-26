@@ -103,9 +103,10 @@ typedef struct Plugin {
 } Plugin;
 
 #define LIST_OF_CALLBACKS \
+        X(main)           \
         X(render)         \
         X(event)          \
         X(kp_event)       \
-        X(resize)         \
+        X(resize)
 
 #endif // !PLUG_H_
