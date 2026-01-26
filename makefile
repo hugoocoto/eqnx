@@ -1,5 +1,5 @@
 #
-# EQNX makefile
+# eqnx makefile
 #
 
 MAJOR = 0
@@ -34,7 +34,7 @@ compile: \
 	$(OUT) \
 	plugins/plugin.so plugins/plugin2.so
 
-$(OUT): $(OBJ) wc.txt
+$(OUT): $(OBJ)
 	$(CC) $(FLAGS) $(OBJ) -o $(OUT) $(LIBS) 
 
 $(OBJ_DIR)/%.o: %.c $(HEADERS) makefile
