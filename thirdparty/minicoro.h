@@ -66,32 +66,30 @@ however it fails on other WebAssembly toolchains like WASI SDK.
 
 # Introduction
 
-A coroutine represents an independent "green" thread of execution. Unlike
-threads in multithread systems, however, a coroutine only suspends its execution
-by explicitly calling a yield function.
+A coroutine represents an independent "green" thread of execution.
+Unlike threads in multithread systems, however,
+a coroutine only suspends its execution by explicitly calling a yield function.
 
-You create a coroutine by calling `mco_create`. Its sole argument is a
-`mco_desc` structure with a description for the coroutine. The `mco_create`
-function only creates a new coroutine and returns a handle to it, it does not
-start the coroutine.
+You create a coroutine by calling `mco_create`.
+Its sole argument is a `mco_desc` structure with a description for the coroutine.
+The `mco_create` function only creates a new coroutine and returns a handle to it, it does not start the coroutine.
 
-You execute a coroutine by calling `mco_resume`. When calling a resume function
-the coroutine starts its execution by calling its body function. After the
-coroutine starts running, it runs until it terminates or yields.
+You execute a coroutine by calling `mco_resume`.
+When calling a resume function the coroutine starts its execution by calling its body function.
+After the coroutine starts running, it runs until it terminates or yields.
 
-A coroutine yields by calling `mco_yield`. When a coroutine yields, the
-corresponding resume returns immediately, even if the yield happens inside
-nested function calls (that is, not in the main function). The next time you
-resume the same coroutine, it continues its execution from the point where it
-yielded.
+A coroutine yields by calling `mco_yield`.
+When a coroutine yields, the corresponding resume returns immediately,
+even if the yield happens inside nested function calls (that is, not in the main function).
+The next time you resume the same coroutine, it continues its execution from the point where it yielded.
 
-To associate a persistent value with the coroutine, you can  optionally set
-`user_data` on its creation and later retrieve with `mco_get_user_data`.
+To associate a persistent value with the coroutine,
+you can  optionally set `user_data` on its creation and later retrieve with `mco_get_user_data`.
 
-To pass values between resume and yield, you can optionally use `mco_push` and
-`mco_pop` APIs, they are intended to pass temporary values using a LIFO style
-buffer. The storage system can also be used to send and receive initial values
-on coroutine creation or before it finishes.
+To pass values between resume and yield,
+you can optionally use `mco_push` and `mco_pop` APIs,
+they are intended to pass temporary values using a LIFO style buffer.
+The storage system can also be used to send and receive initial values on coroutine creation or before it finishes.
 
 # Usage
 

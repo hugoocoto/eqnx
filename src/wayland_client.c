@@ -12,6 +12,8 @@
 #include "keypress.h"
 #include "wayland_client.h"
 
+#include "../thirdparty/stb_image_write.h"
+
 #define TITLE "Untitled"
 
 static struct wl_compositor *compositor;
@@ -135,6 +137,12 @@ fb_resize(int w, int h)
         return init_buffers(w, h, screen_fb.stride);
 }
 
+// screen-capture the framebuffer
+void
+fb_capture(char *path)
+{
+}
+
 void
 fb_get_size(int *w, int *h)
 {
@@ -184,13 +192,13 @@ pointer_frame(void *data, struct wl_pointer *wl_pointer)
 static void
 pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-        printf("Pointer enters the window\n");
+        // printf("Pointer enters the window\n");
 }
 
 static void
 pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface)
 {
-        printf("Pointer leaves the window\n");
+        // printf("Pointer leaves the window\n");
 }
 
 static void
@@ -205,14 +213,14 @@ static void
 pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
         if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
-                printf("Click: %d\n", button);
+                // printf("Click: %d\n", button);
         }
 }
 
 static void
 pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value)
 {
-        printf("Scroll detected\n");
+        // printf("Scroll detected\n");
 }
 
 static const struct wl_pointer_listener pointer_listener = {
@@ -258,13 +266,13 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint32_t format, in
 static void
 keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
 {
-        printf("Keyboard focus enters window\n");
+        // printf("Keyboard focus enters window\n");
 }
 
 static void
 keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface)
 {
-        printf("Keyboard focus leaves window\n");
+        // printf("Keyboard focus leaves window\n");
 }
 
 static void
@@ -444,7 +452,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t w,
 static void
 xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
 {
-        printf("xdg toplevel close event\n");
+        // printf("xdg toplevel close event\n");
         should_quit = true;
 }
 
@@ -540,7 +548,7 @@ wayland_dispatch_events(void)
         }
         wl_display_flush(display);
         if (should_quit) {
-                printf("Close event!\n");
+                // printf("Close event!\n");
                 return 1;
         }
         return 0;

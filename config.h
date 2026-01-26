@@ -1,7 +1,9 @@
 #ifndef CONFIG
 #define CONFIG
 
-const char *const fontpath = "/usr/share/fonts/Iosevka/IosevkaNerdFontMono-Medium.ttf";
-const int font_size = 24;
+// try to find a font by path or by name. Font's size is fontsize
+const char *const fontpath = 0; // 0 or absolute path. 0 means "use fontname"
+const char *const fontname = 0; // 0 or font name. 0 means "use default"
+const int fontsize = 48;        // font size (aka font height)
 
 #endif

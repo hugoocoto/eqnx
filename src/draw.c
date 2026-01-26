@@ -1,4 +1,4 @@
-#include "../config.h"
+#include <fontconfig/fontconfig.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -7,8 +7,10 @@
 #include "wayland_client.h"
 #include "window.h"
 
+#include "../config.h"
+
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
+#include "../thirdparty/stb_truetype.h"
 
 #define UNREACHABLE(...)                                                            \
         do {                                                                        \
@@ -66,12 +68,61 @@ get_default_font()
 {
         static Font *def = NULL;
         if (def) return def;
-        def = load_font(fontpath, font_size);
+
+        char *path = fontpath ? strdup(fontpath) : font_find_by_name(fontname);
+        if (path) def = load_font(path, fontsize);
+        if (!def) {
+                // rely on default monospace font
+                if (path) free(path);
+                path = font_find_by_name("monospace");
+                def = load_font(path, fontsize);
+        }
+        printf("Font: %s loaded\n", path);
+        free(path);
         assert(def);
-        printf("Font: %s loaded\n", fontpath);
         return def;
 }
 
+
+char *
+font_find_by_name(const char *name)
+{
+        FcChar8 *route = 0;
+        FcPattern *match = 0;
+        FcPattern *pattern = 0;
+        FcResult result;
+        char *sroute = 0;
+
+        if (!name) return NULL;
+
+        if (!FcInit()) {
+                printf("Error: Fontconfig FcInit fails\n");
+                return NULL;
+        }
+
+        if ((pattern = FcNameParse((const FcChar8 *) name)) == NULL) {
+                goto free_resources;
+        }
+
+        FcConfigSubstitute(NULL, pattern, FcMatchPattern);
+        FcDefaultSubstitute(pattern);
+
+        if ((match = FcFontMatch(NULL, pattern, &result)) == NULL) {
+                goto free_resources;
+        }
+
+
+        if (FcPatternGetString(match, FC_FILE, 0, &route) == FcResultMatch) {
+                sroute = strdup((char *) route);
+        }
+
+free_resources:
+        FcPatternDestroy(0); // assert that it is not going to explode on error
+        FcPatternDestroy(pattern);
+        FcPatternDestroy(match);
+        FcFini();
+        return sroute;
+}
 
 Font *
 load_font(const char *path, int height)
@@ -95,8 +146,6 @@ load_font(const char *path, int height)
                 printf("failed\n");
         }
 
-        f->b_w = 512;    /* bitmap width */
-        f->b_h = 128;    /* bitmap height */
         f->l_h = height; /* line height */
 
         /* calculate font scaling */

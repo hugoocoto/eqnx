@@ -43,12 +43,11 @@ resize_listener(int w, int h)
 static int
 init_loop(char *ppath)
 {
-        printf("(main.c: plugin -> %s)\n", ppath);
+        // printf("(main.c: plugin -> %s)\n", ppath);
 
         p = plug_open(ppath);
 
         screen_window = create_fullscreen_window();
-        printf("Main window: %p\n", screen_window);
         p->window = screen_window;
         assert(p->window);
 
@@ -60,7 +59,7 @@ init_loop(char *ppath)
         // unsigned long frame = 0;
         for (;;) {
                 if (wayland_dispatch_events()) {
-                        printf("Wayland ask to close\n");
+                        // printf("Wayland ask to close\n");
                         break;
                 }
 
@@ -69,7 +68,7 @@ init_loop(char *ppath)
                         fb_clear(0xFF000000);
                         if (p->render) p->render();
                         wayland_present();
-                        printf("wayland presents\n");
+                        // printf("wayland presents\n");
                 }
 
                 // printf("New frame %lu!\n", ++frame);
@@ -77,7 +76,7 @@ init_loop(char *ppath)
 
         plug_release(p);
         plug_destroy(p);
-        printf("(main.c) return\n");
+        // printf("(main.c) return\n");
         return 0;
 }
 

@@ -4,14 +4,16 @@ OBJ_DIR = obj
 OUT = eqnx
 
 SRC = $(wildcard src/*.c) $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c
-HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h thirdparty/minicoro.h config.h
+HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h \
+thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h config.h
+
 OBJ = $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 
 CC = gcc
 FLAGS = -Wall -Wextra \
--Wno-unused-parameter -Wno-unused-function -Wno-override-init \
--ggdb -rdynamic
-LIBS = -lrt -lwayland-client -lxkbcommon -lm
+  -Wno-unused-parameter -Wno-unused-function -Wno-override-init \
+  -ggdb -rdynamic
+LIBS = -lrt -lwayland-client -lxkbcommon -lm -lfontconfig
 
 .PHONY: all compile install uninstall clean
 
@@ -67,4 +69,14 @@ wc.txt: $(SRC) $(HEADERS)
 	wc `find src plugins -name "*.c" -o -name "*.h"` > wc.txt
 
 thirdparty/minicoro.h:
-	wget https://raw.githubusercontent.com/edubart/minicoro/refs/heads/main/minicoro.h
+	@ mkdir -p thirdparty
+	wget https://raw.githubusercontent.com/edubart/minicoro/refs/heads/main/minicoro.h -O thirdparty/minicoro.h
+
+thirdparty/stb_image_write.h:
+	@ mkdir -p thirdparty
+	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_image_write.h -O thirdparty/stb_image_write.h
+
+thirdparty/stb_truetype.h: 
+	@ mkdir -p thirdparty
+	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_truetype.h -O thirdparty/stb_truetype.h
+

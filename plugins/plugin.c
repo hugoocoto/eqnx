@@ -27,7 +27,7 @@ void
 render()
 {
         assert(my_window);
-        printf("PLUGIN: render\n");
+        // printf("PLUGIN: render\n");
         if (last_pressed_char) window_setall(my_window, last_pressed_char);
         draw_window(my_window);
 }
@@ -36,10 +36,10 @@ int
 main(int argc, char **argv)
 {
         assert(argc == 1);
-        printf("(Plugin: %s) Hello!\n", argv[0]);
+        // printf("(Plugin: %s) Hello!\n", argv[0]);
         my_window = request_window();
-        printf("Plugin window: %p\n", my_window);
+        // printf("Plugin window: %p\n", my_window);
         mainloop();
-        printf("(Plugin: %s) returns\n", argv[0]);
+        // printf("(Plugin: %s) returns\n", argv[0]);
         return 0;
 }
