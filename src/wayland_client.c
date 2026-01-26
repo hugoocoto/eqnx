@@ -140,12 +140,28 @@ fb_resize(int w, int h)
         return init_buffers(w, h, screen_fb.stride);
 }
 
+// swap RR and BB channels
+void
+swizzling()
+{
+        uint32_t *buffer = fb_get_unactive_data();
+        for (int i = 0; i < screen_fb.height * screen_fb.width; i++) {
+                uint32_t ag = buffer[i] & 0xFF00FF00;
+                uint32_t r = (buffer[i] & 0x00FF0000) >> 16;
+                uint32_t b = (buffer[i] & 0x000000FF) << 16;
+                buffer[i] = ag | r | b;
+        }
+}
+
 // screen-capture the framebuffer. Returns the same as stbi_write_png.
 int
 fb_capture(char *filename)
 {
-        return stbi_write_png(filename, screen_fb.width, screen_fb.height,
-                              4, fb_get_unactive_data(), screen_fb.stride);
+        swizzling();
+        int s = stbi_write_png(filename, screen_fb.width, screen_fb.height,
+                               4, fb_get_unactive_data(), screen_fb.stride);
+        swizzling();
+        return s;
 }
 
 void
