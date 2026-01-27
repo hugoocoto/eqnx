@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "../wayland-protocol/xdg-shell-client-protocol.h"
+#include "draw.h"
 #include "event.h"
 #include "keypress.h"
 #include "wayland_client.h"
@@ -33,6 +34,8 @@ static struct xkb_context *xkb_context;
 static struct xkb_keymap *xkb_keymap;
 static struct xkb_state *xkb_state;
 static struct wl_shm *shm;
+static int32_t current_output_scale = 1;
+static struct wl_output *global_output = NULL;
 
 static bool should_quit = false;
 static int pending_height = 0;
@@ -216,18 +219,31 @@ pointer_frame(void *data, struct wl_pointer *wl_pointer)
                 pointer_x = pending_pointer_x;
                 pointer_y = pending_pointer_y;
         }
+
+        Font *f = get_default_font();
+        notify_pointer_event((Pointer_Event) {
+        .type = Pointer_Move,
+        .px = pointer_x,
+        .py = pointer_y,
+        .x = pointer_x / get_grid_width(f),
+        .y = pointer_y / f->l_h,
+        });
 }
 
 static void
 pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-        // printf("Pointer enters the window\n");
+        notify_pointer_event((Pointer_Event) {
+        .type = Pointer_Enter,
+        });
 }
 
 static void
 pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface)
 {
-        // printf("Pointer leaves the window\n");
+        notify_pointer_event((Pointer_Event) {
+        .type = Pointer_Leave,
+        });
 }
 
 static void
@@ -241,15 +257,63 @@ pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixe
 static void
 pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
-        if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
-                // printf("Click: %d\n", button);
-        }
+        Font *f = get_default_font();
+        notify_pointer_event((Pointer_Event) {
+        .type = state == WL_POINTER_BUTTON_STATE_PRESSED ? Pointer_Press :
+                                                           Pointer_Release,
+        .px = pointer_x,
+        .py = pointer_y,
+        .x = pointer_x / get_grid_width(f),
+        .y = pointer_y / f->l_h,
+        .btn = button,
+        });
 }
 
 static void
 pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value)
 {
-        // printf("Scroll detected\n");
+        Font *f = get_default_font();
+        notify_pointer_event((Pointer_Event) {
+        .type = Pointer_Scroll,
+        .px = pointer_x,
+        .py = pointer_y,
+        .x = pointer_x / get_grid_width(f),
+        .y = pointer_y / f->l_h,
+        .scroll = value,
+        });
+}
+
+void
+pointer_axis_relative_direction(void *data, struct wl_pointer *wl_pointer, uint32_t axis, uint32_t direction)
+{
+        Font *f = get_default_font();
+        notify_pointer_event((Pointer_Event) {
+        .type = Pointer_Scroll_Relative,
+        .px = pointer_x,
+        .py = pointer_y,
+        .x = pointer_x / get_grid_width(f),
+        .y = pointer_y / f->l_h,
+        .scroll = axis,
+        .direction = direction,
+        });
+}
+
+static void
+pointer_axis_source(void *data, struct wl_pointer *wl_pointer, uint32_t axis_source)
+{
+        /* Opcional: Manejar la fuente del scroll (rueda, dedo, continuo) */
+}
+
+static void
+pointer_axis_stop(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis)
+{
+        /* Opcional: Manejar el fin de la inercia del scroll */
+}
+
+static void
+pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer, uint32_t axis, int32_t discrete)
+{
+        /* Opcional: Manejar pasos discretos de la rueda del ratón */
 }
 
 static const struct wl_pointer_listener pointer_listener = {
@@ -259,6 +323,9 @@ static const struct wl_pointer_listener pointer_listener = {
         .button = pointer_button,
         .axis = pointer_axis,
         .frame = pointer_frame,
+        .axis_source = pointer_axis_source,
+        .axis_stop = pointer_axis_stop,
+        .axis_discrete = pointer_axis_discrete,
 };
 
 static void
@@ -485,10 +552,86 @@ xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
         should_quit = true;
 }
 
+static void
+xdg_toplevel_configure_bounds(void *data, struct xdg_toplevel *xdg_toplevel,
+                              int32_t width, int32_t height)
+{
+        /* Opcional: Respetar estos límites si no estamos en fullscreen */
+        /* Si width/height son 0, no hay límite */
+}
+
+static void
+xdg_toplevel_wm_capabilities(void *data, struct xdg_toplevel *xdg_toplevel,
+                             struct wl_array *capabilities)
+{
+        /* Opcional: Iterar el array para saber si podemos minimizar/maximizar */
+        /* uint32_t *cap;
+           wl_array_for_each(cap, capabilities) { ... } */
+}
+
+/* Estructura actualizada para xdg_shell moderno */
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
         .configure = xdg_toplevel_configure,
         .close = xdg_toplevel_close,
+        .configure_bounds = xdg_toplevel_configure_bounds,
+        .wm_capabilities = xdg_toplevel_wm_capabilities,
 };
+
+static void
+output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
+                int32_t physical_width, int32_t physical_height,
+                int32_t subpixel, const char *make, const char *model,
+                int32_t transform)
+{
+        // Información física del monitor. Útil para subpixel rendering.
+}
+
+static void
+output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
+            int32_t width, int32_t height, int32_t refresh)
+{
+        // refresh está en mHz (ej: 60000 para 60Hz).
+        // Útil para sincronizar animaciones si no se usa wl_surface_frame.
+}
+
+static void
+output_done(void *data, struct wl_output *wl_output)
+{
+        // "Commit" atómico de los eventos anteriores.
+        // Aquí es donde se debería aplicar la lógica de redibujado si cambió la escala.
+}
+
+static void
+output_scale(void *data, struct wl_output *wl_output, int32_t factor)
+{
+        // Este evento se recibe si el usuario tiene escalado activado (ej. 200% en GNOME).
+        printf("Monitor scale factor detected: %d\n", factor);
+        current_output_scale = factor;
+
+        /* NOTA: Aquí se debería activar un flag para redimensionar el buffer
+           en el siguiente frame (ancho * escala, alto * escala). */
+}
+
+/* Versión 4 añade name y description */
+static void
+output_name(void *data, struct wl_output *wl_output, const char *name)
+{
+}
+
+static void
+output_description(void *data, struct wl_output *wl_output, const char *description)
+{
+}
+
+static const struct wl_output_listener output_listener = {
+        .geometry = output_geometry,
+        .mode = output_mode,
+        .done = output_done,
+        .scale = output_scale,
+        .name = output_name,
+        .description = output_description,
+};
+
 
 static void
 registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
@@ -499,11 +642,18 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, 
         } else if (strcmp(interface, wl_shm_interface.name) == 0) {
                 shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
         } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-                xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
+                uint32_t version_to_bind = version < 6 ? version : 6;
+                xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, version_to_bind);
                 xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
         } else if (strcmp(interface, wl_seat_interface.name) == 0) {
                 seat = wl_registry_bind(registry, name, &wl_seat_interface, 7);
                 wl_seat_add_listener(seat, &seat_listener, NULL);
+        } else if (strcmp(interface, wl_output_interface.name) == 0) {
+                /* Vinculamos wl_output versión 3 para tener soporte de 'scale' */
+                if (!global_output) {
+                        global_output = wl_registry_bind(registry, name, &wl_output_interface, 3);
+                        wl_output_add_listener(global_output, &output_listener, NULL);
+                }
         }
 }
 
@@ -515,6 +665,28 @@ registry_handle_global_remove(void *data, struct wl_registry *registry, uint32_t
 static const struct wl_registry_listener registry_listener = {
         .global = registry_handle_global,
         .global_remove = registry_handle_global_remove,
+};
+
+static void
+surface_enter(void *data, struct wl_surface *wl_surface, struct wl_output *output)
+{
+        /* La ventana entró en un monitor.
+           Aquí deberíamos consultar el 'scale' de ESE output específico
+           y repintar la ventana con esa resolución. */
+        // printf("Window entered output %p\n", (void*)output);
+}
+
+static void
+surface_leave(void *data, struct wl_surface *wl_surface, struct wl_output *output)
+{
+        // La ventana salió de un monitor.
+}
+
+/* Listener para la superficie (versión moderna) */
+static const struct wl_surface_listener surface_listener = {
+        .enter = surface_enter,
+        .leave = surface_leave,
+        // .preferred_buffer_scale o .preferred_buffer_transform (Versión 6+)
 };
 
 void
@@ -550,6 +722,7 @@ wayland_init(void)
         }
 
         surface = wl_compositor_create_surface(compositor);
+        wl_surface_add_listener(surface, &surface_listener, NULL); // <-- Añadir esto
         xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
         xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
         xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);

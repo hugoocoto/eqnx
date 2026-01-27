@@ -45,6 +45,12 @@ resize_listener(int w, int h)
         ask_for_redraw();
 }
 
+static void
+pointer_listener(Pointer_Event e)
+{
+        plug_send_mouse_event(p, e);
+}
+
 static int
 init_loop(char *ppath)
 {
@@ -60,6 +66,7 @@ init_loop(char *ppath)
 
         add_keypress_listener(keypress_listener);
         add_resize_listener(resize_listener);
+        add_pointer_listener(pointer_listener);
 
         // unsigned long frame = 0;
         for (;;) {

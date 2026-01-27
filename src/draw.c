@@ -19,7 +19,6 @@
                 abort();                                                            \
         } while (0)
 
-static int get_grid_width(Font *f);
 
 uint32_t
 utf8_to_codepoint(const char *str, int *consumed)
@@ -316,7 +315,7 @@ print_bitmap(int cc, int rr, unsigned char *bitmap, int bw, int bh, uint32_t fg)
         }
 }
 
-static int
+int
 get_grid_width(Font *f)
 {
         static Font *font = 0;

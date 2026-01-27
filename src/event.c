@@ -14,19 +14,24 @@ notify_resize_event(int w, int h)
         if (resize_listener) resize_listener(w, h);
 }
 
+static Pointer_Listener pointer_listener;
+
+void
+add_pointer_listener(Pointer_Listener pl)
+{
+        pointer_listener = pl;
+}
+
+void
+notify_pointer_event(Pointer_Event e)
+{
+        if (pointer_listener) pointer_listener(e);
+}
+
 bool
 event_is_kp(Event e)
 {
         return e.code == EventKp;
-}
-
-#include <stdlib.h>
-#include <string.h>
-char *
-event_kp_get_utf8(Event e)
-{
-        size_t len = strlen("No yet implemented") + 1;
-        return memcpy(malloc(len), "No yet implemented", len);
 }
 
 int

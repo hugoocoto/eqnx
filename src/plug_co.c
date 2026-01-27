@@ -147,6 +147,13 @@ plug_open(const char *plugdir)
 }
 
 void
+plug_send_mouse_event(Plugin *p, Pointer_Event e)
+{
+        if (!p) return;
+        if (p->mouse_event) p->mouse_event(e);
+}
+
+void
 plug_send_resize_event(Plugin *p, int w, int h)
 {
         if (!p) return;

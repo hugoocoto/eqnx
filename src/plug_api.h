@@ -40,18 +40,19 @@ void mainloop();
 // From plug_co.h
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
 extern void plug_send_resize_event(Plugin *p, int w, int h);
+extern void plug_send_mouse_event(Plugin *p, Pointer_Event);
 extern void ask_for_redraw();
 extern Window *request_window();
-int fb_capture(char *filename); // just to test screen capturing
+int fb_capture(char *filename);
 
-/* Info about plugins. You don't have to touch anything from here */
 typedef struct Plugin {
         char name[32];
-        int (*main)(int, char **);          // int main(int, char **);
-        int (*event)(Event);                // int event(Event);
-        int (*kp_event)(int sym, int mods); // int kp_event(int sym, int mods);
-        int (*render)();                    // int render();
-        int (*resize)(int w, int h);        // int resize(int w, int h);
+        int (*main)(int, char **);
+        int (*event)(Event);
+        int (*kp_event)(int sym, int mods);
+        int (*mouse_event)(Pointer_Event);
+        int (*render)();
+        int (*resize)(int w, int h);
         void *handle;
         Window *window;
         void *co;
@@ -67,6 +68,7 @@ typedef struct Plugin {
         X(render)         \
         X(event)          \
         X(kp_event)       \
+        X(mouse_event)    \
         X(resize)
 
 #endif // !PLUG_H_

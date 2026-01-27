@@ -5,25 +5,56 @@
 #include <stdbool.h>
 
 typedef struct Event Event;
+typedef struct Pointer_Event Pointer_Event;
 
-typedef struct Event {
+// button codes here
+#include <linux/input-event-codes.h>
+
+struct Pointer_Event {
+        enum {
+                Pointer_Move,
+                Pointer_Press,
+                Pointer_Release,
+                Pointer_Enter,
+                Pointer_Leave,
+                Pointer_Scroll,
+                Pointer_Scroll_Relative,
+        } type;
+        union {
+                int btn;
+                int scroll;
+                struct {
+                        int axis;
+                        int direction;
+                };
+        };
+        struct {
+                int x, y, px, py;
+        };
+};
+
+struct Event {
         enum {
                 EventKp,
+                EventPointer,
         } code;
         union {
                 Keypress kp;
+                Pointer_Event pointer;
         };
-} Event;
-
+};
 
 bool event_is_kp(Event e);
-char *event_kp_get_utf8(Event e);
 int event_kp_get_sym(Event e);
 int event_kp_get_mods(Event e);
 
 typedef void (*Resize_Listener)(int, int);
 void add_resize_listener(Resize_Listener rl);
 void notify_resize_event(int w, int h);
+
+typedef void (*Pointer_Listener)(Pointer_Event);
+void add_pointer_listener(Pointer_Listener pl);
+void notify_pointer_event(Pointer_Event);
 
 bool event_kp_has_mod_Alt(Event e);
 bool event_kp_has_mod_Control(Event e);
