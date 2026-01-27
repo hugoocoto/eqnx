@@ -3,6 +3,12 @@
 
 #include "../src/plug_api.h"
 
+#define BLACK 0xFF000000
+#define RED 0xFFFF0000
+#define GREEN 0xFF00FF00
+#define BLUE 0xFF0000FF
+#define WHITE 0xFFFFFFFF
+
 int last_pressed_char = ' ';
 Window *my_window;
 
@@ -27,7 +33,7 @@ void
 render()
 {
         assert(my_window);
-        if (last_pressed_char) window_setall(my_window, last_pressed_char);
+        if (last_pressed_char) window_setall(my_window, last_pressed_char, BLACK, GREEN);
         draw_window(my_window);
 }
 

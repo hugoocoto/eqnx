@@ -29,6 +29,6 @@ Font *load_font(const char *path, int height);
 char *font_find_by_name(const char *name);
 
 unsigned char *get_fontcp(Font *f, uint32_t cp, int *xx, int *yy, int *bw, int *bh, int *ax, int *lsb);
-int draw_cp(Font *f, int x, int y, const uint32_t cp, uint32_t color);
+int draw_cp(Font *f, int x, int y, struct Char3);
 
 #endif

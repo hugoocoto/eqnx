@@ -26,13 +26,21 @@ window_resize(Window *window, int x, int y, int h, int w)
                 while (window->capacity < total_elements) {
                         window->capacity *= 2;
                 }
-                window->buffer = realloc(window->buffer, window->capacity * sizeof(uint32_t));
+                window->buffer = realloc(window->buffer, window->capacity * sizeof(window->buffer[0]));
         }
 
         return window->buffer == NULL;
 }
 
 uint32_t
+window_get_codepoint(Window *window, int c, int r)
+{
+        assert(c < window->w);
+        assert(r < window->h);
+        return window->buffer[r * window->gap + c].c;
+}
+
+struct Char3
 window_get(Window *window, int c, int r)
 {
         assert(c < window->w);
@@ -41,19 +49,19 @@ window_get(Window *window, int c, int r)
 }
 
 void
-window_set(Window *window, int c, int r, uint32_t cp)
+window_set(Window *window, int c, int r, uint32_t cp, uint32_t fg, uint32_t bg)
 {
         assert(r < window->h);
         assert(c < window->w);
-        window->buffer[r * window->gap + c] = cp;
+        window->buffer[r * window->gap + c] = (struct Char3) { cp, fg, bg };
 }
 
 void
-window_setall(Window *window, uint32_t cp)
+window_setall(Window *window, uint32_t cp, uint32_t fg, uint32_t bg)
 {
         for (int r = 0; r < window->h; r++) {
                 for (int c = 0; c < window->w; c++) {
-                        window_set(window, c, r, cp);
+                        window_set(window, c, r, cp, fg, bg);
                 }
         }
 }

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/types.h>
 
 #include "draw.h"
 #include "wayland_client.h"
@@ -17,6 +18,8 @@
                 printf("Unreachable (%s:%d)" __VA_ARGS__ "\n", __FILE__, __LINE__); \
                 abort();                                                            \
         } while (0)
+
+static int get_grid_width(Font *f);
 
 uint32_t
 utf8_to_codepoint(const char *str, int *consumed)
@@ -233,14 +236,14 @@ get_fontcp(Font *f, uint32_t cp, int *xx, int *yy, int *bw, int *bh, int *ax, in
 }
 
 int
-draw_cp(Font *f, int c, int r, const uint32_t cp, uint32_t color)
+draw_cp(Font *f, int c, int r, struct Char3 sc)
 {
         int xx, yy, ax, lsb, bw, bh;
         unsigned char *bitmap;
 
-        bitmap = get_fontcp(f, cp, &xx, &yy, &bw, &bh, &ax, &lsb);
-        // draw_rectangle(c + xx, r + yy, bw, bh, 0xFF00FFFF); // background
-        print_bitmap(c + xx, r + yy, bitmap, bw, bh, color);
+        bitmap = get_fontcp(f, sc.c, &xx, &yy, &bw, &bh, &ax, &lsb);
+        draw_rectangle(c, r, get_grid_width(f), f->l_h, sc.bg); // background
+        print_bitmap(c + xx, r + yy, bitmap, bw, bh, sc.fg);
         return roundf(ax * f->scale);
 }
 
@@ -292,7 +295,7 @@ draw_rectangle(int x, int y, int w, int h, uint32_t color)
 }
 
 void
-print_bitmap(int cc, int rr, unsigned char *bitmap, int bw, int bh, uint32_t color)
+print_bitmap(int cc, int rr, unsigned char *bitmap, int bw, int bh, uint32_t fg)
 {
         int fb_w = 0, fb_h = 0;
         fb_get_size(&fb_w, &fb_h);
@@ -306,11 +309,24 @@ print_bitmap(int cc, int rr, unsigned char *bitmap, int bw, int bh, uint32_t col
                         if (final_c >= 0 && final_c < fb_w && final_r >= 0 && final_r < fb_h) {
                                 alpha_blend_inplace(
                                 &pixels[final_r * fb_w + final_c],
-                                color,
+                                fg,
                                 bitmap[r * bw + c], 256);
                         }
                 }
         }
+}
+
+static int
+get_grid_width(Font *f)
+{
+        static Font *font = 0;
+        static int grid_width;
+        int ax, lsb;
+        if (font) return grid_width;
+        font = f;
+        stbtt_GetCodepointHMetrics(&f->info, 'A', &ax, &lsb);
+        grid_width = roundf(ax * f->scale);
+        return grid_width;
 }
 
 void
@@ -320,21 +336,33 @@ draw_window(Window *win)
         int pixel_r = 0;
         int pixel_c;
 
-        int ax, lsb;
-        stbtt_GetCodepointHMetrics(&f->info, 'A', &ax, &lsb);
-        int grid_width = roundf(ax * f->scale);
+        int grid_width = get_grid_width(f);
 
         for (int r = 0; r < win->h; r++, pixel_r += f->l_h) {
                 pixel_c = 0;
 
                 for (int c = 0; c < win->w; c++, pixel_c += grid_width) {
-                        uint32_t cp = window_get(win, c, r);
+                        struct Char3 sc = window_get(win, c, r);
 
-                        if (cp == 0) {
+                        if (sc.c == 0) {
                                 continue;
                         }
 
-                        draw_cp(f, pixel_c, pixel_r, cp, 0xFFFF0000);
+                        draw_cp(f, pixel_c, pixel_r, sc);
                 }
+        }
+}
+
+void
+draw_clear_window(Window *window)
+{
+        window_setall(window, 0, 0xFF000000, 0xFF000000);
+}
+
+void
+draw_clear_line(Window *window, int line)
+{
+        for (int i = 0; i < window->w; i++) {
+                window_set(window, i, line, 0, 0xFF000000, 0xFF000000);
         }
 }
