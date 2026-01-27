@@ -8,6 +8,12 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <time.h>
+
+/* Se requiere para la gestión del cursor - compilar con -lwayland-cursor */
+#include <wayland-cursor.h>
 
 #include "../wayland-protocol/xdg-shell-client-protocol.h"
 #include "draw.h"
@@ -20,6 +26,7 @@
 
 #define TITLE "Untitled"
 
+/* Globales Wayland */
 static struct wl_compositor *compositor;
 static struct wl_display *display;
 static struct wl_keyboard *keyboard;
@@ -34,9 +41,15 @@ static struct xkb_context *xkb_context;
 static struct xkb_keymap *xkb_keymap;
 static struct xkb_state *xkb_state;
 static struct wl_shm *shm;
-static int32_t current_output_scale = 1;
 static struct wl_output *global_output = NULL;
 
+/* Gestión de Cursor */
+static struct wl_cursor_theme *cursor_theme = NULL;
+static struct wl_surface *cursor_surface = NULL;
+static struct wl_cursor *default_cursor = NULL;
+
+/* Estado */
+static int32_t current_output_scale = 1;
 static bool should_quit = false;
 static int pending_height = 0;
 static int pending_width = 0;
@@ -47,13 +60,20 @@ static double pending_pointer_y;
 static bool has_pending_pointer = false;
 static char *current_title = NULL;
 static bool init = 0;
+static bool configured = false;
+
+/* Control de flujo de cuadros (VSync) */
+static struct wl_callback *frame_callback = NULL;
+static bool waiting_for_frame = false;
 
 struct Framebuffer {
         struct wl_buffer *buffers[2];
+        bool busy[2]; 
         uint32_t *data;
         size_t capacity;
         int fd;
-        int width, height;
+        int width, height; 
+        int logical_w, logical_h; 
         int stride;
         int current_idx;
 } screen_fb;
@@ -69,6 +89,18 @@ create_shm_file(off_t size)
         }
         return fd;
 }
+
+static void
+buffer_release(void *data, struct wl_buffer *buffer)
+{
+        struct Framebuffer *fb = data;
+        if (buffer == fb->buffers[0]) fb->busy[0] = false;
+        if (buffer == fb->buffers[1]) fb->busy[1] = false;
+}
+
+static const struct wl_buffer_listener buffer_listener = {
+        .release = buffer_release,
+};
 
 static void
 fb_destroy()
@@ -111,39 +143,55 @@ init_buffers(int w, int h, int stride)
         struct wl_shm_pool *pool = wl_shm_create_pool(shm, screen_fb.fd, screen_fb.capacity);
 
         screen_fb.buffers[0] = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        wl_buffer_add_listener(screen_fb.buffers[0], &buffer_listener, &screen_fb);
+        screen_fb.busy[0] = false;
+
         screen_fb.buffers[1] = wl_shm_pool_create_buffer(pool, page_size, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        wl_buffer_add_listener(screen_fb.buffers[1], &buffer_listener, &screen_fb);
+        screen_fb.busy[1] = false;
 
         wl_shm_pool_destroy(pool);
         return 0;
 }
 
 static int
-fb_create(int w, int h)
+fb_create(int logical_w, int logical_h)
 {
+        int physical_w = logical_w * current_output_scale;
+        int physical_h = logical_h * current_output_scale;
+
         screen_fb = (struct Framebuffer) {
-                .width = w,
-                .height = h,
-                .stride = w * 4, // ARGB
+                .width = physical_w,
+                .height = physical_h,
+                .logical_w = logical_w,
+                .logical_h = logical_h,
+                .stride = physical_w * 4,
                 .fd = -1,
+                .current_idx = 0
         };
 
-        return init_buffers(w, h, screen_fb.stride);
+        return init_buffers(physical_w, physical_h, screen_fb.stride);
 }
 
 static int
-fb_resize(int w, int h)
+fb_resize(int logical_w, int logical_h)
 {
-        if (w <= 0 || h <= 0) return 1;
-        if (w == screen_fb.width && h == screen_fb.height) return 0;
+        if (logical_w <= 0 || logical_h <= 0) return 1;
+        
+        int physical_w = logical_w * current_output_scale;
+        int physical_h = logical_h * current_output_scale;
 
-        screen_fb.width = w;
-        screen_fb.height = h;
-        screen_fb.stride = w * 4;
+        if (physical_w == screen_fb.width && physical_h == screen_fb.height) return 0;
 
-        return init_buffers(w, h, screen_fb.stride);
+        screen_fb.logical_w = logical_w;
+        screen_fb.logical_h = logical_h;
+        screen_fb.width = physical_w;
+        screen_fb.height = physical_h;
+        screen_fb.stride = physical_w * 4;
+
+        return init_buffers(physical_w, physical_h, screen_fb.stride);
 }
 
-// swap RR and BB channels
 void
 swizzling()
 {
@@ -156,7 +204,6 @@ swizzling()
         }
 }
 
-// screen-capture the framebuffer. Returns the same as stbi_write_png.
 int
 fb_capture(char *filename)
 {
@@ -170,8 +217,8 @@ fb_capture(char *filename)
 void
 fb_get_size(int *w, int *h)
 {
-        *w = screen_fb.width;
-        *h = screen_fb.height;
+        *w = screen_fb.logical_w;
+        *h = screen_fb.logical_h;
 }
 
 uint32_t *
@@ -203,174 +250,102 @@ fb_clear(uint32_t color)
 void
 fb_swap()
 {
-        screen_fb.current_idx = 1 - screen_fb.current_idx;
+        int next_idx = 1 - screen_fb.current_idx;
+        if (!screen_fb.busy[next_idx]) {
+                screen_fb.current_idx = next_idx;
+        }
 }
 
 struct wl_buffer *
 fb_get_ready_buffer()
 {
-        return screen_fb.buffers[screen_fb.current_idx];
+        if (screen_fb.busy[screen_fb.current_idx]) {
+                int other = 1 - screen_fb.current_idx;
+                if (!screen_fb.busy[other]) {
+                        screen_fb.current_idx = other;
+                } else {
+                        return NULL;
+                }
+        }
+        struct wl_buffer *buf = screen_fb.buffers[screen_fb.current_idx];
+        screen_fb.busy[screen_fb.current_idx] = true; 
+        return buf;
 }
 
+/* --- Cursor --- */
 static void
-pointer_frame(void *data, struct wl_pointer *wl_pointer)
+update_cursor(uint32_t serial)
 {
+        if (!pointer || !cursor_theme) return;
+        struct wl_cursor_image *image = default_cursor->images[0];
+        struct wl_buffer *cursor_buffer = wl_cursor_image_get_buffer(image);
+        wl_pointer_set_cursor(pointer, serial, cursor_surface, image->hotspot_x, image->hotspot_y);
+        wl_surface_attach(cursor_surface, cursor_buffer, 0, 0);
+        wl_surface_damage(cursor_surface, 0, 0, image->width, image->height);
+        wl_surface_set_buffer_scale(cursor_surface, current_output_scale);
+        wl_surface_commit(cursor_surface);
+}
+
+static void pointer_frame(void *data, struct wl_pointer *wl_pointer) {
         if (has_pending_pointer) {
                 pointer_x = pending_pointer_x;
                 pointer_y = pending_pointer_y;
         }
-
         Font *f = get_default_font();
         notify_pointer_event((Pointer_Event) {
-        .type = Pointer_Move,
-        .px = pointer_x,
-        .py = pointer_y,
-        .x = pointer_x / get_grid_width(f),
-        .y = pointer_y / f->l_h,
-        });
+        .type = Pointer_Move, .px = pointer_x, .py = pointer_y,
+        .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h });
 }
 
-static void
-pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t surface_x, wl_fixed_t surface_y)
-{
-        notify_pointer_event((Pointer_Event) {
-        .type = Pointer_Enter,
-        });
+static void pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
+        update_cursor(serial);
+        notify_pointer_event((Pointer_Event) {.type = Pointer_Enter});
 }
-
-static void
-pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface)
-{
-        notify_pointer_event((Pointer_Event) {
-        .type = Pointer_Leave,
-        });
+static void pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface) {
+        notify_pointer_event((Pointer_Event) {.type = Pointer_Leave});
 }
-
-static void
-pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
-{
-        pending_pointer_x = wl_fixed_to_double(surface_x);
-        pending_pointer_y = wl_fixed_to_double(surface_y);
+static void pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy) {
+        pending_pointer_x = wl_fixed_to_double(sx);
+        pending_pointer_y = wl_fixed_to_double(sy);
         has_pending_pointer = true;
 }
-
-static void
-pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
-{
+static void pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state) {
         Font *f = get_default_font();
         notify_pointer_event((Pointer_Event) {
-        .type = state == WL_POINTER_BUTTON_STATE_PRESSED ? Pointer_Press :
-                                                           Pointer_Release,
-        .px = pointer_x,
-        .py = pointer_y,
-        .x = pointer_x / get_grid_width(f),
-        .y = pointer_y / f->l_h,
-        .btn = button,
-        });
+        .type = state == WL_POINTER_BUTTON_STATE_PRESSED ? Pointer_Press : Pointer_Release,
+        .px = pointer_x, .py = pointer_y, .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h, .btn = button });
 }
-
-static void
-pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value)
-{
+static void pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value) {
         Font *f = get_default_font();
         notify_pointer_event((Pointer_Event) {
-        .type = Pointer_Scroll,
-        .px = pointer_x,
-        .py = pointer_y,
-        .x = pointer_x / get_grid_width(f),
-        .y = pointer_y / f->l_h,
-        .scroll = value,
-        });
+        .type = Pointer_Scroll, .px = pointer_x, .py = pointer_y,
+        .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h, .scroll = value });
 }
-
-void
-pointer_axis_relative_direction(void *data, struct wl_pointer *wl_pointer, uint32_t axis, uint32_t direction)
-{
-        Font *f = get_default_font();
-        notify_pointer_event((Pointer_Event) {
-        .type = Pointer_Scroll_Relative,
-        .px = pointer_x,
-        .py = pointer_y,
-        .x = pointer_x / get_grid_width(f),
-        .y = pointer_y / f->l_h,
-        .scroll = axis,
-        .direction = direction,
-        });
-}
-
-static void
-pointer_axis_source(void *data, struct wl_pointer *wl_pointer, uint32_t axis_source)
-{
-        /* Opcional: Manejar la fuente del scroll (rueda, dedo, continuo) */
-}
-
-static void
-pointer_axis_stop(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis)
-{
-        /* Opcional: Manejar el fin de la inercia del scroll */
-}
-
-static void
-pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer, uint32_t axis, int32_t discrete)
-{
-        /* Opcional: Manejar pasos discretos de la rueda del ratón */
-}
+static void pointer_axis_source(void *d, struct wl_pointer *p, uint32_t as) {}
+static void pointer_axis_stop(void *d, struct wl_pointer *p, uint32_t t, uint32_t a) {}
+static void pointer_axis_discrete(void *d, struct wl_pointer *p, uint32_t a, int32_t ds) {}
 
 static const struct wl_pointer_listener pointer_listener = {
-        .enter = pointer_enter,
-        .leave = pointer_leave,
-        .motion = pointer_motion,
-        .button = pointer_button,
-        .axis = pointer_axis,
-        .frame = pointer_frame,
-        .axis_source = pointer_axis_source,
-        .axis_stop = pointer_axis_stop,
-        .axis_discrete = pointer_axis_discrete,
+        .enter = pointer_enter, .leave = pointer_leave, .motion = pointer_motion,
+        .button = pointer_button, .axis = pointer_axis, .frame = pointer_frame,
+        .axis_source = pointer_axis_source, .axis_stop = pointer_axis_stop, .axis_discrete = pointer_axis_discrete
 };
 
-static void
-keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard, uint32_t format, int32_t fd, uint32_t size)
-{
-        if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
-                printf("Invalid keyboard format: %d\n", format);
-                close(fd);
-                return;
-        }
-
-        char *map_shm = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
-        if (map_shm == MAP_FAILED) {
-                close(fd);
-                return;
-        }
-
+/* --- Teclado --- */
+static void keyboard_keymap(void *data, struct wl_keyboard *k, uint32_t f, int32_t fd, uint32_t s) {
+        if (f != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) { close(fd); return; }
+        char *map = mmap(NULL, s, PROT_READ, MAP_SHARED, fd, 0);
+        if (map == MAP_FAILED) { close(fd); return; }
         if (xkb_keymap) xkb_keymap_unref(xkb_keymap);
         if (xkb_state) xkb_state_unref(xkb_state);
-
-        xkb_keymap = xkb_keymap_new_from_string(xkb_context, map_shm, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
-
-        munmap(map_shm, size);
-        close(fd);
-
-        if (!xkb_keymap) {
-                printf("xkb_keymap compilation error\n");
-                return;
-        }
-
-        xkb_state = xkb_state_new(xkb_keymap);
+        xkb_keymap = xkb_keymap_new_from_string(xkb_context, map, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        munmap(map, s); close(fd);
+        if (xkb_keymap) xkb_state = xkb_state_new(xkb_keymap);
 }
+static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t s, struct wl_surface *surf, struct wl_array *keys) {}
+static void keyboard_leave(void *d, struct wl_keyboard *k, uint32_t s, struct wl_surface *surf) {}
 
-static void
-keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
-{
-        // printf("Keyboard focus enters window\n");
-}
-
-static void
-keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface)
-{
-        // printf("Keyboard focus leaves window\n");
-}
-
+/* CORREGIDO: Lógica original restaurada para ignorar keypress en modificadores */
 static void
 keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
 {
@@ -378,10 +353,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint3
         uint32_t keycode = key + 8;
         xkb_keysym_t sym = xkb_state_key_get_one_sym(xkb_state, keycode);
 
-        if (sym == XKB_KEY_NoSymbol) {
-                printf("sym = XKB_KEY_NoSymbol\n");
-                return;
-        }
+        if (sym == XKB_KEY_NoSymbol) return;
 
         switch (state) {
         case WL_KEYBOARD_KEY_STATE_RELEASED:
@@ -409,6 +381,8 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint3
                         uint32_t codepoint = xkb_state_key_get_utf32(xkb_state, keycode);
                         register_keypress(sym, mods, codepoint);
                 } break;
+                
+                /* Modificadores: Solo actualizan estado, NO envían evento */
                 case XKB_KEY_Shift_L: mods |= Mod_Shift_L; return;
                 case XKB_KEY_Shift_R: mods |= Mod_Shift_R; return;
                 case XKB_KEY_Control_L: mods |= Mod_Control_L; return;
@@ -430,354 +404,228 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint3
         }
 }
 
-static void
-keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched, uint32_t mods_locked, uint32_t group)
-{
-        if (!xkb_state) return;
-        xkb_state_update_mask(xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
+static void keyboard_modifiers(void *d, struct wl_keyboard *k, uint32_t s, uint32_t md, uint32_t ml, uint32_t mlo, uint32_t g) {
+        if (xkb_state) xkb_state_update_mask(xkb_state, md, ml, mlo, 0, 0, g);
 }
-
-static void
-keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, int32_t delay)
-{
-}
+static void keyboard_repeat_info(void *d, struct wl_keyboard *k, int32_t r, int32_t de) {}
 
 static const struct wl_keyboard_listener keyboard_listener = {
-        .keymap = keyboard_keymap,
-        .enter = keyboard_enter,
-        .leave = keyboard_leave,
-        .key = keyboard_key,
-        .modifiers = keyboard_modifiers,
-        .repeat_info = keyboard_repeat_info,
+        .keymap = keyboard_keymap, .enter = keyboard_enter, .leave = keyboard_leave,
+        .key = keyboard_key, .modifiers = keyboard_modifiers, .repeat_info = keyboard_repeat_info
 };
 
-static void
-seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities)
-{
+/* --- Seat --- */
+static void seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
         bool has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
         bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
-
         if (has_pointer && !pointer) {
                 pointer = wl_seat_get_pointer(wl_seat);
                 wl_pointer_add_listener(pointer, &pointer_listener, NULL);
         } else if (!has_pointer && pointer) {
-                wl_pointer_release(pointer);
-                pointer = NULL;
+                wl_pointer_release(pointer); pointer = NULL;
         }
-
         if (has_keyboard && !keyboard) {
                 keyboard = wl_seat_get_keyboard(wl_seat);
                 wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
         } else if (!has_keyboard && keyboard) {
-                wl_keyboard_release(keyboard);
-                keyboard = NULL;
+                wl_keyboard_release(keyboard); keyboard = NULL;
         }
 }
+static void seat_name(void *d, struct wl_seat *s, const char *n) {}
+static const struct wl_seat_listener seat_listener = { .capabilities = seat_capabilities, .name = seat_name };
 
-static void
-seat_name(void *data, struct wl_seat *wl_seat, const char *name)
-{
-}
-
-static const struct wl_seat_listener seat_listener = {
-        .capabilities = seat_capabilities,
-        .name = seat_name,
-};
-
-static void
-xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
-{
+/* --- XDG Shell --- */
+static void xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial) {
         xdg_wm_base_pong(xdg_wm_base, serial);
 }
-
-static const struct xdg_wm_base_listener xdg_wm_base_listener = {
-        .ping = xdg_wm_base_ping,
-};
+static const struct xdg_wm_base_listener xdg_wm_base_listener = { .ping = xdg_wm_base_ping };
 
 static void
 xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
 {
-        int new_w = (pending_width > 0) ? pending_width : screen_fb.width;
-        int new_h = (pending_height > 0) ? pending_height : screen_fb.height;
-
-        if (new_w != screen_fb.width || new_h != screen_fb.height) {
-                fb_resize(new_w, new_h);
-                notify_resize_event(new_w, new_h);
-        }
-
         xdg_surface_ack_configure(xdg_surface, serial);
-}
+        
+        int w = pending_width;
+        int h = pending_height;
+        if (w == 0) w = 800; // Tamaño por defecto si no lo da el WM
+        if (h == 0) h = 600;
 
-static const struct xdg_surface_listener xdg_surface_listener = {
-        .configure = xdg_surface_configure,
-};
-
-
-static void
-xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t w, int32_t h, struct wl_array *states)
-{
-        enum xdg_toplevel_state *state;
-        wl_array_for_each(state, states)
-        {
-                switch (*state) {
-                case XDG_TOPLEVEL_STATE_MAXIMIZED:
-                case XDG_TOPLEVEL_STATE_FULLSCREEN:
-                case XDG_TOPLEVEL_STATE_RESIZING:
-                case XDG_TOPLEVEL_STATE_ACTIVATED:
-                case XDG_TOPLEVEL_STATE_TILED_LEFT:
-                case XDG_TOPLEVEL_STATE_TILED_RIGHT:
-                case XDG_TOPLEVEL_STATE_TILED_TOP:
-                case XDG_TOPLEVEL_STATE_TILED_BOTTOM:
-                case XDG_TOPLEVEL_STATE_SUSPENDED:
-                case XDG_TOPLEVEL_STATE_CONSTRAINED_LEFT:
-                case XDG_TOPLEVEL_STATE_CONSTRAINED_RIGHT:
-                case XDG_TOPLEVEL_STATE_CONSTRAINED_TOP:
-                case XDG_TOPLEVEL_STATE_CONSTRAINED_BOTTOM: break;
-                }
+        if (w != screen_fb.logical_w || h != screen_fb.logical_h) {
+                fb_resize(w, h);
+                notify_resize_event(w, h);
         }
-
-        if (w > 0 && h > 0) {
-                pending_width = w;
-                pending_height = h;
-        } else {
-                pending_width = 0;
-                pending_height = 0;
-        }
+        
+        configured = true;
 }
 
-static void
-xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
-{
-        // printf("xdg toplevel close event\n");
-        should_quit = true;
-}
+static const struct xdg_surface_listener xdg_surface_listener = { .configure = xdg_surface_configure };
 
-static void
-xdg_toplevel_configure_bounds(void *data, struct xdg_toplevel *xdg_toplevel,
-                              int32_t width, int32_t height)
-{
-        /* Opcional: Respetar estos límites si no estamos en fullscreen */
-        /* Si width/height son 0, no hay límite */
+static void xdg_toplevel_configure(void *data, struct xdg_toplevel *t, int32_t w, int32_t h, struct wl_array *s) {
+        pending_width = w; pending_height = h;
 }
-
-static void
-xdg_toplevel_wm_capabilities(void *data, struct xdg_toplevel *xdg_toplevel,
-                             struct wl_array *capabilities)
-{
-        /* Opcional: Iterar el array para saber si podemos minimizar/maximizar */
-        /* uint32_t *cap;
-           wl_array_for_each(cap, capabilities) { ... } */
-}
-
-/* Estructura actualizada para xdg_shell moderno */
+static void xdg_toplevel_close(void *d, struct xdg_toplevel *t) { should_quit = true; }
+static void xdg_toplevel_configure_bounds(void *d, struct xdg_toplevel *t, int32_t w, int32_t h) {}
+static void xdg_toplevel_wm_capabilities(void *d, struct xdg_toplevel *t, struct wl_array *c) {}
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
-        .configure = xdg_toplevel_configure,
-        .close = xdg_toplevel_close,
-        .configure_bounds = xdg_toplevel_configure_bounds,
-        .wm_capabilities = xdg_toplevel_wm_capabilities,
+        .configure = xdg_toplevel_configure, .close = xdg_toplevel_close,
+        .configure_bounds = xdg_toplevel_configure_bounds, .wm_capabilities = xdg_toplevel_wm_capabilities
 };
 
-static void
-output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
-                int32_t physical_width, int32_t physical_height,
-                int32_t subpixel, const char *make, const char *model,
-                int32_t transform)
-{
-        // Información física del monitor. Útil para subpixel rendering.
+/* --- Output --- */
+static void output_scale(void *data, struct wl_output *wl_output, int32_t factor) {
+        if (current_output_scale != factor) {
+                current_output_scale = factor;
+                if (cursor_theme) {
+                        wl_cursor_theme_destroy(cursor_theme);
+                        cursor_theme = wl_cursor_theme_load(NULL, 24 * factor, shm);
+                        if (cursor_theme) default_cursor = wl_cursor_theme_get_cursor(cursor_theme, "left_ptr");
+                }
+                fb_resize(screen_fb.logical_w, screen_fb.logical_h);
+        }
 }
-
-static void
-output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
-            int32_t width, int32_t height, int32_t refresh)
-{
-        // refresh está en mHz (ej: 60000 para 60Hz).
-        // Útil para sincronizar animaciones si no se usa wl_surface_frame.
-}
-
-static void
-output_done(void *data, struct wl_output *wl_output)
-{
-        // "Commit" atómico de los eventos anteriores.
-        // Aquí es donde se debería aplicar la lógica de redibujado si cambió la escala.
-}
-
-static void
-output_scale(void *data, struct wl_output *wl_output, int32_t factor)
-{
-        // Este evento se recibe si el usuario tiene escalado activado (ej. 200% en GNOME).
-        printf("Monitor scale factor detected: %d\n", factor);
-        current_output_scale = factor;
-
-        /* NOTA: Aquí se debería activar un flag para redimensionar el buffer
-           en el siguiente frame (ancho * escala, alto * escala). */
-}
-
-/* Versión 4 añade name y description */
-static void
-output_name(void *data, struct wl_output *wl_output, const char *name)
-{
-}
-
-static void
-output_description(void *data, struct wl_output *wl_output, const char *description)
-{
-}
-
+static void output_geometry(void *d, struct wl_output *o, int32_t x, int32_t y, int32_t pw, int32_t ph, int32_t s, const char *m, const char *mo, int32_t t) {}
+static void output_mode(void *d, struct wl_output *o, uint32_t f, int32_t w, int32_t h, int32_t r) {}
+static void output_done(void *d, struct wl_output *o) {}
+static void output_name(void *d, struct wl_output *o, const char *n) {}
+static void output_description(void *d, struct wl_output *o, const char *de) {}
 static const struct wl_output_listener output_listener = {
-        .geometry = output_geometry,
-        .mode = output_mode,
-        .done = output_done,
-        .scale = output_scale,
-        .name = output_name,
-        .description = output_description,
+        .geometry = output_geometry, .mode = output_mode, .done = output_done,
+        .scale = output_scale, .name = output_name, .description = output_description
 };
 
-
-static void
-registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
-{
-        if (0) {
-        } else if (strcmp(interface, wl_compositor_interface.name) == 0) {
+/* --- Registro --- */
+static void registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version) {
+        if (strcmp(interface, wl_compositor_interface.name) == 0) {
                 compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
         } else if (strcmp(interface, wl_shm_interface.name) == 0) {
                 shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
         } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-                uint32_t version_to_bind = version < 6 ? version : 6;
-                xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, version_to_bind);
+                xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, version < 6 ? version : 6);
                 xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
         } else if (strcmp(interface, wl_seat_interface.name) == 0) {
                 seat = wl_registry_bind(registry, name, &wl_seat_interface, 7);
                 wl_seat_add_listener(seat, &seat_listener, NULL);
         } else if (strcmp(interface, wl_output_interface.name) == 0) {
-                /* Vinculamos wl_output versión 3 para tener soporte de 'scale' */
                 if (!global_output) {
                         global_output = wl_registry_bind(registry, name, &wl_output_interface, 3);
                         wl_output_add_listener(global_output, &output_listener, NULL);
                 }
         }
 }
+static void registry_handle_global_remove(void *d, struct wl_registry *r, uint32_t n) {}
+static const struct wl_registry_listener registry_listener = { .global = registry_handle_global, .global_remove = registry_handle_global_remove };
 
-static void
-registry_handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
-{
+static void redraw(void *data, struct wl_callback *callback, uint32_t time);
+static const struct wl_callback_listener frame_listener = { .done = redraw };
+
+static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
+        wl_callback_destroy(callback);
+        waiting_for_frame = false;
 }
 
-static const struct wl_registry_listener registry_listener = {
-        .global = registry_handle_global,
-        .global_remove = registry_handle_global_remove,
-};
+static void surface_enter(void *d, struct wl_surface *s, struct wl_output *o) {}
+static void surface_leave(void *d, struct wl_surface *s, struct wl_output *o) {}
+static const struct wl_surface_listener surface_listener = { .enter = surface_enter, .leave = surface_leave };
 
-static void
-surface_enter(void *data, struct wl_surface *wl_surface, struct wl_output *output)
-{
-        /* La ventana entró en un monitor.
-           Aquí deberíamos consultar el 'scale' de ESE output específico
-           y repintar la ventana con esa resolución. */
-        // printf("Window entered output %p\n", (void*)output);
-}
-
-static void
-surface_leave(void *data, struct wl_surface *wl_surface, struct wl_output *output)
-{
-        // La ventana salió de un monitor.
-}
-
-/* Listener para la superficie (versión moderna) */
-static const struct wl_surface_listener surface_listener = {
-        .enter = surface_enter,
-        .leave = surface_leave,
-        // .preferred_buffer_scale o .preferred_buffer_transform (Versión 6+)
-};
-
-void
-wayland_set_title(char *title)
-{
+void wayland_set_title(char *title) {
         if (current_title) free(current_title);
         current_title = strdup(title);
-        xdg_toplevel_set_title(xdg_toplevel, current_title);
+        if (xdg_toplevel) xdg_toplevel_set_title(xdg_toplevel, current_title);
 }
 
-int
-wayland_init(void)
-{
+void wayland_present(void) {
+        if (should_quit || !surface || !configured) return;
+        
+        if (waiting_for_frame) return;
+
+        struct wl_buffer *buffer = fb_get_ready_buffer();
+        if (!buffer) return;
+
+        wl_surface_set_buffer_scale(surface, current_output_scale);
+        wl_surface_attach(surface, buffer, 0, 0);
+        wl_surface_damage(surface, 0, 0, screen_fb.logical_w, screen_fb.logical_h);
+
+        struct wl_callback *cb = wl_surface_frame(surface);
+        wl_callback_add_listener(cb, &frame_listener, NULL);
+        waiting_for_frame = true;
+        
+        wl_surface_commit(surface);
+        fb_swap();
+}
+
+int wayland_init(void) {
         xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-        if (!xkb_context) {
-                printf("Error: Failed to create xkb_context\n");
-                return 1;
-        }
+        if (!xkb_context) return 1;
 
         display = wl_display_connect(NULL);
-        if (!display) {
-                printf("Error: Failed to connect to display\n");
-                return 1;
-        }
+        if (!display) { fprintf(stderr, "Cannot connect to Wayland display\n"); return 1; }
 
         registry = wl_display_get_registry(display);
         wl_registry_add_listener(registry, &registry_listener, NULL);
         wl_display_roundtrip(display);
 
-        if (!compositor || !shm || !xdg_wm_base) {
-                printf("Error: Wayland globals missing\n");
-                return 1;
+        if (!compositor || !shm || !xdg_wm_base) { fprintf(stderr, "Missing Wayland globals\n"); return 1; }
+
+        cursor_theme = wl_cursor_theme_load(NULL, 24 * current_output_scale, shm);
+        if (cursor_theme) {
+                default_cursor = wl_cursor_theme_get_cursor(cursor_theme, "left_ptr");
+                cursor_surface = wl_compositor_create_surface(compositor);
         }
 
         surface = wl_compositor_create_surface(compositor);
-        wl_surface_add_listener(surface, &surface_listener, NULL); // <-- Añadir esto
+        wl_surface_add_listener(surface, &surface_listener, NULL);
+        
         xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
         xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
+        
         xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
         xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
+        
         wayland_set_title(TITLE);
+        
+        /* Inicialización Síncrona */
         wl_surface_commit(surface);
 
-        if (fb_create(800, 600) != 0) {
-                printf("Error! Can not create framebuffer\n");
-                return 1;
+        while (!configured) {
+                if (wl_display_dispatch(display) < 0) return 1;
         }
 
-        wl_display_roundtrip(display);
+        if (fb_create(screen_fb.logical_w, screen_fb.logical_h) != 0) return 1;
+
+        fb_clear(0xFFFFFFFF);
         wayland_present();
+        
+        wl_display_flush(display);
+
         init = 1;
         return 0;
 }
 
-int
-wayland_dispatch_events(void)
-{
-        if (wl_display_dispatch(display) < 0) {
-                printf("wl_display_dispatch fails\n");
-                return 1;
-        }
-        wl_display_flush(display);
-        if (should_quit) {
-                // printf("Close event!\n");
-                return 1;
-        }
+int wayland_dispatch_events(void) {
+        if (wl_display_dispatch(display) < 0) return 1;
+        if (should_quit) return 1;
         return 0;
 }
 
-void
-wayland_present(void)
-{
-        if (should_quit || !surface) return;
-        struct wl_buffer *buffer = fb_get_ready_buffer();
-        wl_surface_attach(surface, buffer, 0, 0);
-        wl_surface_damage(surface, 0, 0, screen_fb.width, screen_fb.height);
-        wl_surface_commit(surface);
-        fb_swap();
-}
-
-void
-wayland_cleanup(void)
-{
+void wayland_cleanup(void) {
+        if (frame_callback) wl_callback_destroy(frame_callback);
         fb_destroy();
+        if (cursor_surface) wl_surface_destroy(cursor_surface);
+        if (cursor_theme) wl_cursor_theme_destroy(cursor_theme);
         if (xdg_toplevel) xdg_toplevel_destroy(xdg_toplevel);
         if (xdg_surface) xdg_surface_destroy(xdg_surface);
         if (surface) wl_surface_destroy(surface);
+        if (pointer) wl_pointer_release(pointer);
+        if (keyboard) wl_keyboard_release(keyboard);
+        if (seat) wl_seat_destroy(seat);
         if (xkb_state) xkb_state_unref(xkb_state);
         if (xkb_keymap) xkb_keymap_unref(xkb_keymap);
         if (xkb_context) xkb_context_unref(xkb_context);
+        if (global_output) wl_output_destroy(global_output);
+        if (xdg_wm_base) xdg_wm_base_destroy(xdg_wm_base);
+        if (shm) wl_shm_destroy(shm);
+        if (compositor) wl_compositor_destroy(compositor);
+        if (registry) wl_registry_destroy(registry);
         if (display) wl_display_disconnect(display);
         if (current_title) free(current_title);
-        should_quit = true;
 }

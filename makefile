@@ -12,7 +12,7 @@ OUT = eqnx
 
 CC = gcc
 FLAGS = -Wall -Wextra -Wno-unused-parameter -ggdb -rdynamic -fPIC
-LIBS = -lrt -lwayland-client -lxkbcommon -lm -lfontconfig
+LIBS = -lrt -lwayland-client -lwayland-cursor -lxkbcommon -lm -lfontconfig
 
 # Hardcoded path: fix this if it's possible
 WAYLAND_XDGSHELL_PATH = /usr/share/wayland-protocols/stable/xdg-shell
