@@ -1,7 +1,8 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
-#include <errno.h>
+// Todo: refactor this vive-coded file. 
+
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,6 +16,7 @@
 /* Se requiere para la gestión del cursor - compilar con -lwayland-cursor */
 #include <wayland-cursor.h>
 
+#include "../wayland-protocol/xdg-decoration-unstable-v1.h"
 #include "../wayland-protocol/xdg-shell-client-protocol.h"
 #include "draw.h"
 #include "event.h"
@@ -42,6 +44,7 @@ static struct xkb_keymap *xkb_keymap;
 static struct xkb_state *xkb_state;
 static struct wl_shm *shm;
 static struct wl_output *global_output = NULL;
+static struct zxdg_decoration_manager_v1 *decoration_manager = NULL;
 
 /* Gestión de Cursor */
 static struct wl_cursor_theme *cursor_theme = NULL;
@@ -109,10 +112,8 @@ fb_destroy()
         if (screen_fb.buffers[1]) wl_buffer_destroy(screen_fb.buffers[1]);
         screen_fb.buffers[0] = NULL;
         screen_fb.buffers[1] = NULL;
-
         if (screen_fb.data) munmap(screen_fb.data, screen_fb.capacity);
         screen_fb.data = NULL;
-
         if (screen_fb.fd >= 0) close(screen_fb.fd);
         screen_fb.fd = -1;
 }
@@ -600,8 +601,11 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, 
                         global_output = wl_registry_bind(registry, name, &wl_output_interface, 3);
                         wl_output_add_listener(global_output, &output_listener, NULL);
                 }
+        } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
+                decoration_manager = wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
         }
 }
+
 static void
 registry_handle_global_remove(void *d, struct wl_registry *r, uint32_t n)
 {
@@ -694,6 +698,14 @@ wayland_init(void)
         xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
         xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
+        if (decoration_manager) {
+                struct zxdg_toplevel_decoration_v1 *decoration =
+                zxdg_decoration_manager_v1_get_toplevel_decoration(decoration_manager, xdg_toplevel);
+
+                /* Solicitamos explícitamente decoración del lado del servidor (SSD) */
+                zxdg_toplevel_decoration_v1_set_mode(decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+        }
+
         wayland_set_title(TITLE);
 
         /* Inicialización Síncrona */
@@ -742,7 +754,8 @@ wayland_cleanup(void)
         if (xdg_wm_base) xdg_wm_base_destroy(xdg_wm_base);
         if (shm) wl_shm_destroy(shm);
         if (compositor) wl_compositor_destroy(compositor);
+        if (decoration_manager) zxdg_decoration_manager_v1_destroy(decoration_manager);
+        if (current_title) free(current_title);
         if (registry) wl_registry_destroy(registry);
         if (display) wl_display_disconnect(display);
-        if (current_title) free(current_title);
 }

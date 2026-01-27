@@ -4,6 +4,8 @@ eqnx
 plugins/plugin2.so
 plugins/plugin.so
 plugins/*.so
+plugins/*.d
+*.d
 .gitignore
 wc.txt
 st

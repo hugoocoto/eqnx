@@ -71,37 +71,37 @@ btn_repr(int b)
 void
 mouse_event(Pointer_Event e)
 {
-        switch (e.type) {
-        case Pointer_Move:
-                printf("Pointer moves to: %d, %d (%d, %d)\n",
-                       e.x, e.y, e.px, e.py);
-                break;
-        case Pointer_Enter:
-                printf("Pointer enter focus\n");
-                break;
-        case Pointer_Leave:
-                printf("Pointer leaves focus\n");
-                break;
-        case Pointer_Scroll:
-                printf("Pointer scrolls %d (on %d, %d (%d, %d))\n",
-                       e.scroll, e.x, e.y, e.px, e.py);
-                break;
-        case Pointer_Scroll_Relative:
-                printf("Pointer scrolls relative axis=%d direction=%d (on %d, %d (%d, %d))\n",
-                       e.axis, e.direction, e.x, e.y, e.px, e.py);
-                break;
-        case Pointer_Press:
-                printf("Pointer press %s (on %d, %d (%d, %d))\n",
-                       btn_repr(e.btn), e.x, e.y, e.px, e.py);
-                break;
-        case Pointer_Release:
-                printf("Pointer press %s (on %d, %d (%d, %d))\n",
-                       btn_repr(e.btn), e.x, e.y, e.px, e.py);
-                break;
-        default:
-                printf("Unhandled mouse event %d\n", e.type);
-                return;
-        }
+        // switch (e.type) {
+        // case Pointer_Move:
+        //         printf("Pointer moves to: %d, %d (%d, %d)\n",
+        //                e.x, e.y, e.px, e.py);
+        //         break;
+        // case Pointer_Enter:
+        //         printf("Pointer enter focus\n");
+        //         break;
+        // case Pointer_Leave:
+        //         printf("Pointer leaves focus\n");
+        //         break;
+        // case Pointer_Scroll:
+        //         printf("Pointer scrolls %d (on %d, %d (%d, %d))\n",
+        //                e.scroll, e.x, e.y, e.px, e.py);
+        //         break;
+        // case Pointer_Scroll_Relative:
+        //         printf("Pointer scrolls relative axis=%d direction=%d (on %d, %d (%d, %d))\n",
+        //                e.axis, e.direction, e.x, e.y, e.px, e.py);
+        //         break;
+        // case Pointer_Press:
+        //         printf("Pointer press %s (on %d, %d (%d, %d))\n",
+        //                btn_repr(e.btn), e.x, e.y, e.px, e.py);
+        //         break;
+        // case Pointer_Release:
+        //         printf("Pointer press %s (on %d, %d (%d, %d))\n",
+        //                btn_repr(e.btn), e.x, e.y, e.px, e.py);
+        //         break;
+        // default:
+        //         printf("Unhandled mouse event %d\n", e.type);
+        //         return;
+        // }
 }
 
 void
