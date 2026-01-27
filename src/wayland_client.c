@@ -1,16 +1,16 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
+#include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <errno.h>
 #include <time.h>
+#include <unistd.h>
 
 /* Se requiere para la gestión del cursor - compilar con -lwayland-cursor */
 #include <wayland-cursor.h>
@@ -68,12 +68,12 @@ static bool waiting_for_frame = false;
 
 struct Framebuffer {
         struct wl_buffer *buffers[2];
-        bool busy[2]; 
+        bool busy[2];
         uint32_t *data;
         size_t capacity;
         int fd;
-        int width, height; 
-        int logical_w, logical_h; 
+        int width, height;
+        int logical_w, logical_h;
         int stride;
         int current_idx;
 } screen_fb;
@@ -177,7 +177,7 @@ static int
 fb_resize(int logical_w, int logical_h)
 {
         if (logical_w <= 0 || logical_h <= 0) return 1;
-        
+
         int physical_w = logical_w * current_output_scale;
         int physical_h = logical_h * current_output_scale;
 
@@ -259,17 +259,7 @@ fb_swap()
 struct wl_buffer *
 fb_get_ready_buffer()
 {
-        if (screen_fb.busy[screen_fb.current_idx]) {
-                int other = 1 - screen_fb.current_idx;
-                if (!screen_fb.busy[other]) {
-                        screen_fb.current_idx = other;
-                } else {
-                        return NULL;
-                }
-        }
-        struct wl_buffer *buf = screen_fb.buffers[screen_fb.current_idx];
-        screen_fb.busy[screen_fb.current_idx] = true; 
-        return buf;
+        return screen_fb.buffers[screen_fb.current_idx];
 }
 
 /* --- Cursor --- */
@@ -286,64 +276,108 @@ update_cursor(uint32_t serial)
         wl_surface_commit(cursor_surface);
 }
 
-static void pointer_frame(void *data, struct wl_pointer *wl_pointer) {
+static void
+pointer_frame(void *data, struct wl_pointer *wl_pointer)
+{
         if (has_pending_pointer) {
                 pointer_x = pending_pointer_x;
                 pointer_y = pending_pointer_y;
         }
         Font *f = get_default_font();
         notify_pointer_event((Pointer_Event) {
-        .type = Pointer_Move, .px = pointer_x, .py = pointer_y,
-        .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h });
+        .type = Pointer_Move, .px = pointer_x, .py = pointer_y, .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h });
 }
 
-static void pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
+static void
+pointer_enter(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy)
+{
         update_cursor(serial);
-        notify_pointer_event((Pointer_Event) {.type = Pointer_Enter});
+        notify_pointer_event((Pointer_Event) { .type = Pointer_Enter });
 }
-static void pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface) {
-        notify_pointer_event((Pointer_Event) {.type = Pointer_Leave});
+static void
+pointer_leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface)
+{
+        notify_pointer_event((Pointer_Event) { .type = Pointer_Leave });
 }
-static void pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy) {
+static void
+pointer_motion(void *data, struct wl_pointer *wl_pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
+{
         pending_pointer_x = wl_fixed_to_double(sx);
         pending_pointer_y = wl_fixed_to_double(sy);
         has_pending_pointer = true;
 }
-static void pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state) {
+static void
+pointer_button(void *data, struct wl_pointer *wl_pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
+{
         Font *f = get_default_font();
         notify_pointer_event((Pointer_Event) {
         .type = state == WL_POINTER_BUTTON_STATE_PRESSED ? Pointer_Press : Pointer_Release,
-        .px = pointer_x, .py = pointer_y, .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h, .btn = button });
+        .px = pointer_x,
+        .py = pointer_y,
+        .x = pointer_x / get_grid_width(f),
+        .y = pointer_y / f->l_h,
+        .btn = button });
 }
-static void pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value) {
+static void
+pointer_axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value)
+{
         Font *f = get_default_font();
         notify_pointer_event((Pointer_Event) {
-        .type = Pointer_Scroll, .px = pointer_x, .py = pointer_y,
-        .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h, .scroll = value });
+        .type = Pointer_Scroll, .px = pointer_x, .py = pointer_y, .x = pointer_x / get_grid_width(f), .y = pointer_y / f->l_h, .scroll = value });
 }
-static void pointer_axis_source(void *d, struct wl_pointer *p, uint32_t as) {}
-static void pointer_axis_stop(void *d, struct wl_pointer *p, uint32_t t, uint32_t a) {}
-static void pointer_axis_discrete(void *d, struct wl_pointer *p, uint32_t a, int32_t ds) {}
+static void
+pointer_axis_source(void *d, struct wl_pointer *p, uint32_t as)
+{
+}
+static void
+pointer_axis_stop(void *d, struct wl_pointer *p, uint32_t t, uint32_t a)
+{
+}
+static void
+pointer_axis_discrete(void *d, struct wl_pointer *p, uint32_t a, int32_t ds)
+{
+}
 
 static const struct wl_pointer_listener pointer_listener = {
-        .enter = pointer_enter, .leave = pointer_leave, .motion = pointer_motion,
-        .button = pointer_button, .axis = pointer_axis, .frame = pointer_frame,
-        .axis_source = pointer_axis_source, .axis_stop = pointer_axis_stop, .axis_discrete = pointer_axis_discrete
+        .enter = pointer_enter,
+        .leave = pointer_leave,
+        .motion = pointer_motion,
+        .button = pointer_button,
+        .axis = pointer_axis,
+        .frame = pointer_frame,
+        .axis_source = pointer_axis_source,
+        .axis_stop = pointer_axis_stop,
+        .axis_discrete = pointer_axis_discrete
 };
 
 /* --- Teclado --- */
-static void keyboard_keymap(void *data, struct wl_keyboard *k, uint32_t f, int32_t fd, uint32_t s) {
-        if (f != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) { close(fd); return; }
+static void
+keyboard_keymap(void *data, struct wl_keyboard *k, uint32_t f, int32_t fd, uint32_t s)
+{
+        if (f != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+                close(fd);
+                return;
+        }
         char *map = mmap(NULL, s, PROT_READ, MAP_SHARED, fd, 0);
-        if (map == MAP_FAILED) { close(fd); return; }
+        if (map == MAP_FAILED) {
+                close(fd);
+                return;
+        }
         if (xkb_keymap) xkb_keymap_unref(xkb_keymap);
         if (xkb_state) xkb_state_unref(xkb_state);
         xkb_keymap = xkb_keymap_new_from_string(xkb_context, map, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
-        munmap(map, s); close(fd);
+        munmap(map, s);
+        close(fd);
         if (xkb_keymap) xkb_state = xkb_state_new(xkb_keymap);
 }
-static void keyboard_enter(void *d, struct wl_keyboard *k, uint32_t s, struct wl_surface *surf, struct wl_array *keys) {}
-static void keyboard_leave(void *d, struct wl_keyboard *k, uint32_t s, struct wl_surface *surf) {}
+static void
+keyboard_enter(void *d, struct wl_keyboard *k, uint32_t s, struct wl_surface *surf, struct wl_array *keys)
+{
+}
+static void
+keyboard_leave(void *d, struct wl_keyboard *k, uint32_t s, struct wl_surface *surf)
+{
+}
 
 /* CORREGIDO: Lógica original restaurada para ignorar keypress en modificadores */
 static void
@@ -381,7 +415,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint3
                         uint32_t codepoint = xkb_state_key_get_utf32(xkb_state, keycode);
                         register_keypress(sym, mods, codepoint);
                 } break;
-                
+
                 /* Modificadores: Solo actualizan estado, NO envían evento */
                 case XKB_KEY_Shift_L: mods |= Mod_Shift_L; return;
                 case XKB_KEY_Shift_R: mods |= Mod_Shift_R; return;
@@ -404,38 +438,56 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, uint3
         }
 }
 
-static void keyboard_modifiers(void *d, struct wl_keyboard *k, uint32_t s, uint32_t md, uint32_t ml, uint32_t mlo, uint32_t g) {
+static void
+keyboard_modifiers(void *d, struct wl_keyboard *k, uint32_t s, uint32_t md, uint32_t ml, uint32_t mlo, uint32_t g)
+{
         if (xkb_state) xkb_state_update_mask(xkb_state, md, ml, mlo, 0, 0, g);
 }
-static void keyboard_repeat_info(void *d, struct wl_keyboard *k, int32_t r, int32_t de) {}
+static void
+keyboard_repeat_info(void *d, struct wl_keyboard *k, int32_t r, int32_t de)
+{
+}
 
 static const struct wl_keyboard_listener keyboard_listener = {
-        .keymap = keyboard_keymap, .enter = keyboard_enter, .leave = keyboard_leave,
-        .key = keyboard_key, .modifiers = keyboard_modifiers, .repeat_info = keyboard_repeat_info
+        .keymap = keyboard_keymap,
+        .enter = keyboard_enter,
+        .leave = keyboard_leave,
+        .key = keyboard_key,
+        .modifiers = keyboard_modifiers,
+        .repeat_info = keyboard_repeat_info
 };
 
 /* --- Seat --- */
-static void seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
+static void
+seat_capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities)
+{
         bool has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
         bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
         if (has_pointer && !pointer) {
                 pointer = wl_seat_get_pointer(wl_seat);
                 wl_pointer_add_listener(pointer, &pointer_listener, NULL);
         } else if (!has_pointer && pointer) {
-                wl_pointer_release(pointer); pointer = NULL;
+                wl_pointer_release(pointer);
+                pointer = NULL;
         }
         if (has_keyboard && !keyboard) {
                 keyboard = wl_seat_get_keyboard(wl_seat);
                 wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
         } else if (!has_keyboard && keyboard) {
-                wl_keyboard_release(keyboard); keyboard = NULL;
+                wl_keyboard_release(keyboard);
+                keyboard = NULL;
         }
 }
-static void seat_name(void *d, struct wl_seat *s, const char *n) {}
+static void
+seat_name(void *d, struct wl_seat *s, const char *n)
+{
+}
 static const struct wl_seat_listener seat_listener = { .capabilities = seat_capabilities, .name = seat_name };
 
 /* --- XDG Shell --- */
-static void xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial) {
+static void
+xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
+{
         xdg_wm_base_pong(xdg_wm_base, serial);
 }
 static const struct xdg_wm_base_listener xdg_wm_base_listener = { .ping = xdg_wm_base_ping };
@@ -444,7 +496,7 @@ static void
 xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t serial)
 {
         xdg_surface_ack_configure(xdg_surface, serial);
-        
+
         int w = pending_width;
         int h = pending_height;
         if (w == 0) w = 800; // Tamaño por defecto si no lo da el WM
@@ -454,25 +506,42 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t seri
                 fb_resize(w, h);
                 notify_resize_event(w, h);
         }
-        
+
         configured = true;
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = { .configure = xdg_surface_configure };
 
-static void xdg_toplevel_configure(void *data, struct xdg_toplevel *t, int32_t w, int32_t h, struct wl_array *s) {
-        pending_width = w; pending_height = h;
+static void
+xdg_toplevel_configure(void *data, struct xdg_toplevel *t, int32_t w, int32_t h, struct wl_array *s)
+{
+        pending_width = w;
+        pending_height = h;
 }
-static void xdg_toplevel_close(void *d, struct xdg_toplevel *t) { should_quit = true; }
-static void xdg_toplevel_configure_bounds(void *d, struct xdg_toplevel *t, int32_t w, int32_t h) {}
-static void xdg_toplevel_wm_capabilities(void *d, struct xdg_toplevel *t, struct wl_array *c) {}
+static void
+xdg_toplevel_close(void *d, struct xdg_toplevel *t)
+{
+        should_quit = true;
+}
+static void
+xdg_toplevel_configure_bounds(void *d, struct xdg_toplevel *t, int32_t w, int32_t h)
+{
+}
+static void
+xdg_toplevel_wm_capabilities(void *d, struct xdg_toplevel *t, struct wl_array *c)
+{
+}
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
-        .configure = xdg_toplevel_configure, .close = xdg_toplevel_close,
-        .configure_bounds = xdg_toplevel_configure_bounds, .wm_capabilities = xdg_toplevel_wm_capabilities
+        .configure = xdg_toplevel_configure,
+        .close = xdg_toplevel_close,
+        .configure_bounds = xdg_toplevel_configure_bounds,
+        .wm_capabilities = xdg_toplevel_wm_capabilities
 };
 
 /* --- Output --- */
-static void output_scale(void *data, struct wl_output *wl_output, int32_t factor) {
+static void
+output_scale(void *data, struct wl_output *wl_output, int32_t factor)
+{
         if (current_output_scale != factor) {
                 current_output_scale = factor;
                 if (cursor_theme) {
@@ -483,18 +552,39 @@ static void output_scale(void *data, struct wl_output *wl_output, int32_t factor
                 fb_resize(screen_fb.logical_w, screen_fb.logical_h);
         }
 }
-static void output_geometry(void *d, struct wl_output *o, int32_t x, int32_t y, int32_t pw, int32_t ph, int32_t s, const char *m, const char *mo, int32_t t) {}
-static void output_mode(void *d, struct wl_output *o, uint32_t f, int32_t w, int32_t h, int32_t r) {}
-static void output_done(void *d, struct wl_output *o) {}
-static void output_name(void *d, struct wl_output *o, const char *n) {}
-static void output_description(void *d, struct wl_output *o, const char *de) {}
+static void
+output_geometry(void *d, struct wl_output *o, int32_t x, int32_t y, int32_t pw, int32_t ph, int32_t s, const char *m, const char *mo, int32_t t)
+{
+}
+static void
+output_mode(void *d, struct wl_output *o, uint32_t f, int32_t w, int32_t h, int32_t r)
+{
+}
+static void
+output_done(void *d, struct wl_output *o)
+{
+}
+static void
+output_name(void *d, struct wl_output *o, const char *n)
+{
+}
+static void
+output_description(void *d, struct wl_output *o, const char *de)
+{
+}
 static const struct wl_output_listener output_listener = {
-        .geometry = output_geometry, .mode = output_mode, .done = output_done,
-        .scale = output_scale, .name = output_name, .description = output_description
+        .geometry = output_geometry,
+        .mode = output_mode,
+        .done = output_done,
+        .scale = output_scale,
+        .name = output_name,
+        .description = output_description
 };
 
 /* --- Registro --- */
-static void registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version) {
+static void
+registry_handle_global(void *data, struct wl_registry *registry, uint32_t name, const char *interface, uint32_t version)
+{
         if (strcmp(interface, wl_compositor_interface.name) == 0) {
                 compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 4);
         } else if (strcmp(interface, wl_shm_interface.name) == 0) {
@@ -512,30 +602,45 @@ static void registry_handle_global(void *data, struct wl_registry *registry, uin
                 }
         }
 }
-static void registry_handle_global_remove(void *d, struct wl_registry *r, uint32_t n) {}
+static void
+registry_handle_global_remove(void *d, struct wl_registry *r, uint32_t n)
+{
+}
 static const struct wl_registry_listener registry_listener = { .global = registry_handle_global, .global_remove = registry_handle_global_remove };
 
 static void redraw(void *data, struct wl_callback *callback, uint32_t time);
 static const struct wl_callback_listener frame_listener = { .done = redraw };
 
-static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
+static void
+redraw(void *data, struct wl_callback *callback, uint32_t time)
+{
         wl_callback_destroy(callback);
         waiting_for_frame = false;
 }
 
-static void surface_enter(void *d, struct wl_surface *s, struct wl_output *o) {}
-static void surface_leave(void *d, struct wl_surface *s, struct wl_output *o) {}
+static void
+surface_enter(void *d, struct wl_surface *s, struct wl_output *o)
+{
+}
+static void
+surface_leave(void *d, struct wl_surface *s, struct wl_output *o)
+{
+}
 static const struct wl_surface_listener surface_listener = { .enter = surface_enter, .leave = surface_leave };
 
-void wayland_set_title(char *title) {
+void
+wayland_set_title(char *title)
+{
         if (current_title) free(current_title);
         current_title = strdup(title);
         if (xdg_toplevel) xdg_toplevel_set_title(xdg_toplevel, current_title);
 }
 
-void wayland_present(void) {
+void
+wayland_present(void)
+{
         if (should_quit || !surface || !configured) return;
-        
+
         if (waiting_for_frame) return;
 
         struct wl_buffer *buffer = fb_get_ready_buffer();
@@ -548,23 +653,31 @@ void wayland_present(void) {
         struct wl_callback *cb = wl_surface_frame(surface);
         wl_callback_add_listener(cb, &frame_listener, NULL);
         waiting_for_frame = true;
-        
+
         wl_surface_commit(surface);
         fb_swap();
 }
 
-int wayland_init(void) {
+int
+wayland_init(void)
+{
         xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if (!xkb_context) return 1;
 
         display = wl_display_connect(NULL);
-        if (!display) { fprintf(stderr, "Cannot connect to Wayland display\n"); return 1; }
+        if (!display) {
+                fprintf(stderr, "Cannot connect to Wayland display\n");
+                return 1;
+        }
 
         registry = wl_display_get_registry(display);
         wl_registry_add_listener(registry, &registry_listener, NULL);
         wl_display_roundtrip(display);
 
-        if (!compositor || !shm || !xdg_wm_base) { fprintf(stderr, "Missing Wayland globals\n"); return 1; }
+        if (!compositor || !shm || !xdg_wm_base) {
+                fprintf(stderr, "Missing Wayland globals\n");
+                return 1;
+        }
 
         cursor_theme = wl_cursor_theme_load(NULL, 24 * current_output_scale, shm);
         if (cursor_theme) {
@@ -574,15 +687,15 @@ int wayland_init(void) {
 
         surface = wl_compositor_create_surface(compositor);
         wl_surface_add_listener(surface, &surface_listener, NULL);
-        
+
         xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
         xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
-        
+
         xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
         xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
-        
+
         wayland_set_title(TITLE);
-        
+
         /* Inicialización Síncrona */
         wl_surface_commit(surface);
 
@@ -594,20 +707,24 @@ int wayland_init(void) {
 
         fb_clear(0xFFFFFFFF);
         wayland_present();
-        
+
         wl_display_flush(display);
 
         init = 1;
         return 0;
 }
 
-int wayland_dispatch_events(void) {
+int
+wayland_dispatch_events(void)
+{
         if (wl_display_dispatch(display) < 0) return 1;
         if (should_quit) return 1;
         return 0;
 }
 
-void wayland_cleanup(void) {
+void
+wayland_cleanup(void)
+{
         if (frame_callback) wl_callback_destroy(frame_callback);
         fb_destroy();
         if (cursor_surface) wl_surface_destroy(cursor_surface);
