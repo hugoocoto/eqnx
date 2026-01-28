@@ -10,10 +10,14 @@ Window *window_create(int x, int y, int h, int w);
 Window *create_fullscreen_window();
 int window_resize(Window *, int x, int y, int h, int w);
 int window_resize_px(Window *window, int fb_h, int fb_w);
+
 struct Char3 window_get(Window *window, int x, int y);
 uint32_t window_get_codepoint(Window *window, int x, int y);
+
 void window_set(Window *window, int x, int y, uint32_t c, uint32_t fg, uint32_t bg);
 void window_setall(Window *window, uint32_t c, uint32_t fg, uint32_t bg);
+void window_puts(Window *window, int x, int y, char *str, uint32_t fg, uint32_t bg);
+void window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...);
 
 typedef struct Window {
         int w, h;

@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -29,6 +30,9 @@ window_resize(Window *window, int x, int y, int h, int w)
                 window->buffer = realloc(window->buffer, window->capacity * sizeof(window->buffer[0]));
         }
 
+        // clear buffer on resize (or creation)
+        memset(window->buffer, 0, window->capacity * sizeof(window->buffer[0]));
+
         return window->buffer == NULL;
 }
 
@@ -38,6 +42,31 @@ window_get_codepoint(Window *window, int c, int r)
         assert(c < window->w);
         assert(r < window->h);
         return window->buffer[r * window->gap + c].c;
+}
+
+void
+window_puts(Window *window, int x, int y, char *str, uint32_t fg, uint32_t bg)
+{
+        if (!str) return;
+        size_t len = strlen(str);
+        size_t i;
+        for (i = 0; i < len; i++) {
+                if (!isprint(str[i])) continue;
+                window_set(window, x + i, y, str[i], fg, bg);
+        }
+}
+
+void
+window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...)
+{
+        if (!fmt) return;
+
+        char buf[1024] = { 0 };
+        va_list ap;
+        va_start(ap, fmt);
+        vsnprintf(buf, sizeof buf - 1, fmt, ap);
+        va_end(ap);
+        window_puts(window, x, y, buf, fg, bg);
 }
 
 struct Char3

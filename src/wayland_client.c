@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
-// Todo: refactor this vive-coded file. 
+// Todo: refactor this vive-coded file.
 
 #include <fcntl.h>
 #include <stdbool.h>
@@ -255,6 +255,7 @@ fb_swap()
         if (!screen_fb.busy[next_idx]) {
                 screen_fb.current_idx = next_idx;
         }
+        fb_clear(0xFF000000);
 }
 
 struct wl_buffer *
@@ -717,7 +718,7 @@ wayland_init(void)
 
         if (fb_create(screen_fb.logical_w, screen_fb.logical_h) != 0) return 1;
 
-        fb_clear(0xFFFFFFFF);
+        fb_clear(0xFF000000);
         wayland_present();
 
         wl_display_flush(display);

@@ -77,7 +77,6 @@ init_loop(char *ppath)
 
                 if (need_redraw) {
                         need_redraw = false;
-                        fb_clear(0xFF000000);
                         if (p->render) p->render();
                         wayland_present();
                         // printf("wayland presents\n");

@@ -24,6 +24,9 @@ void draw_window(Window *win);
 uint32_t utf8_to_codepoint(const char *str, int *out_bytes_consumed);
 void print_bitmap(int x, int y, unsigned char *bitmap, int bw, int bh, uint32_t color);
 
+void draw_clear_window(Window *window);
+void draw_clear_line(Window *window, int line);
+
 int get_grid_width(Font *f);
 Font *get_default_font();
 Font *load_font(const char *path, int height);

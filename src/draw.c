@@ -241,6 +241,9 @@ draw_cp(Font *f, int c, int r, struct Char3 sc)
         unsigned char *bitmap;
 
         bitmap = get_fontcp(f, sc.c, &xx, &yy, &bw, &bh, &ax, &lsb);
+        // int border_size = 2;
+        // draw_clear_rectangle(c, r, get_grid_width(f), f->l_h, border_size, 0xFFFFFFFF);                                         // border
+        // draw_rectangle(c + border_size, r + border_size, get_grid_width(f) - 2 * border_size, f->l_h - 2 * border_size, sc.bg); // background
         draw_rectangle(c, r, get_grid_width(f), f->l_h, sc.bg); // background
         print_bitmap(c + xx, r + yy, bitmap, bw, bh, sc.fg);
         return roundf(ax * f->scale);

@@ -27,7 +27,7 @@ WAYLAND_SOURCES = $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \
 WAYLAND_OBJ = $(patsubst $(WAYLAND_OUT_PATH)/%.c,$(OBJ_DIR)/protocol/%.o,$(WAYLAND_SOURCES))
 
 # Plugins
-PLUGINS_SO = plugins/plugin.so plugins/plugin2.so
+PLUGINS_SO = $(patsubst plugins/%.c,plugins/%.so,$(wildcard plugins/*.c))
 
 .PHONY: all compile install uninstall clean
 
