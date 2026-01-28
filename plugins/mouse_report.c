@@ -14,9 +14,8 @@ int last_pressed_char = ' ';
 Window *my_window;
 
 void
-resize(int w, int h)
+resize(int x, int y, int w, int h)
 {
-        printf("New size: %d %d\n", w, h);
 }
 
 void

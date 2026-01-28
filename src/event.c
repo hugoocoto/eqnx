@@ -9,9 +9,9 @@ add_resize_listener(Resize_Listener rl)
 }
 
 void
-notify_resize_event(int w, int h)
+notify_resize_event(int x, int y, int w, int h)
 {
-        if (resize_listener) resize_listener(w, h);
+        if (resize_listener) resize_listener(x, y, w, h);
 }
 
 static Pointer_Listener pointer_listener;

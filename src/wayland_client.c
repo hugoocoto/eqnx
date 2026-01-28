@@ -197,7 +197,7 @@ void
 swizzling()
 {
         uint32_t *buffer = fb_get_unactive_data();
-        for (int i = 0; i < screen_fb.height * screen_fb.width; i++) {
+        for (int i = 0; i < screen_fb.logical_w * screen_fb.logical_h; i++) {
                 uint32_t ag = buffer[i] & 0xFF00FF00;
                 uint32_t r = (buffer[i] & 0x00FF0000) >> 16;
                 uint32_t b = (buffer[i] & 0x000000FF) << 16;
@@ -209,7 +209,7 @@ int
 fb_capture(char *filename)
 {
         swizzling();
-        int s = stbi_write_png(filename, screen_fb.width, screen_fb.height,
+        int s = stbi_write_png(filename, screen_fb.logical_h, screen_fb.logical_w,
                                4, fb_get_unactive_data(), screen_fb.stride);
         swizzling();
         return s;
@@ -226,14 +226,14 @@ uint32_t *
 fb_get_unactive_data()
 {
         size_t offset_pixels = (1 - screen_fb.current_idx) *
-                               (screen_fb.width * screen_fb.height);
+                               (screen_fb.logical_h * screen_fb.logical_w);
         return screen_fb.data + offset_pixels;
 }
 
 uint32_t *
 fb_get_active_data()
 {
-        size_t offset_pixels = screen_fb.current_idx * (screen_fb.width * screen_fb.height);
+        size_t offset_pixels = screen_fb.current_idx * (screen_fb.logical_h * screen_fb.logical_w);
         return screen_fb.data + offset_pixels;
 }
 
@@ -241,7 +241,7 @@ int
 fb_clear(uint32_t color)
 {
         uint32_t *pixels = fb_get_active_data();
-        size_t count = screen_fb.width * screen_fb.height;
+        size_t count = screen_fb.logical_w * screen_fb.logical_h;
         for (size_t i = 0; i < count; ++i) {
                 pixels[i] = color;
         }
@@ -506,7 +506,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t seri
 
         if (w != screen_fb.logical_w || h != screen_fb.logical_h) {
                 fb_resize(w, h);
-                notify_resize_event(w, h);
+                notify_resize_event(0, 0, w, h);
         }
 
         configured = true;

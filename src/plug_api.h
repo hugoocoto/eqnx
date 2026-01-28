@@ -30,7 +30,7 @@ typedef struct Plugin Plugin;
 /* Create a child plugin and execute it. This function returns once mainloop is
  * called by the child. It returns either the plugin structure or NULL, if
  * something went wrong. */
-Plugin *plug_run(char *plugpath);
+Plugin *plug_run(char *plugpath, Window *);
 
 /* Enter plugin "mainloop". It's not a loop, but acts like one. This function
  * returns when the program has to end. Once this function is called, the plugin
@@ -39,7 +39,7 @@ void mainloop();
 
 // From plug_co.h
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
-extern void plug_send_resize_event(Plugin *p, int w, int h);
+extern void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
 extern void plug_send_mouse_event(Plugin *p, Pointer_Event);
 extern void ask_for_redraw();
 extern Window *request_window();
@@ -50,9 +50,9 @@ typedef struct Plugin {
         int (*main)(int, char **);
         int (*event)(Event);
         int (*kp_event)(int sym, int mods);
-        int (*mouse_event)(Pointer_Event);
+        int (*pointer_event)(Pointer_Event);
         int (*render)();
-        int (*resize)(int w, int h);
+        int (*resize)(int x, int y, int w, int h);
         void *handle;
         Window *window;
         void *co;
@@ -68,7 +68,9 @@ typedef struct Plugin {
         X(render)         \
         X(event)          \
         X(kp_event)       \
-        X(mouse_event)    \
+        X(pointer_event)  \
         X(resize)
+
+#define mouse_event pointer_event
 
 #endif // !PLUG_H_

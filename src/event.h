@@ -48,9 +48,9 @@ bool event_is_kp(Event e);
 int event_kp_get_sym(Event e);
 int event_kp_get_mods(Event e);
 
-typedef void (*Resize_Listener)(int, int);
+typedef void (*Resize_Listener)(int, int, int, int);
 void add_resize_listener(Resize_Listener rl);
-void notify_resize_event(int w, int h);
+void notify_resize_event(int x, int y, int w, int h);
 
 typedef void (*Pointer_Listener)(Pointer_Event);
 void add_pointer_listener(Pointer_Listener pl);

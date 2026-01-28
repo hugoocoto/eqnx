@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <bits/pthreadtypes.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -22,8 +24,16 @@ extern void draw_window(Window *win);
 #define INIT_PLUGIN "./plugins/plugin.so"
 
 static Plugin *p;
-static Window *screen_window;
-static bool need_redraw = false;
+static bool need_redraw = true;
+static pthread_mutex_t single_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void
+render_frame()
+{
+        need_redraw = false;
+        if (p->render) p->render();
+        wayland_present();
+}
 
 void
 ask_for_redraw()
@@ -34,21 +44,27 @@ ask_for_redraw()
 static void
 keypress_listener(Keypress kp)
 {
+        pthread_mutex_lock(&single_thread_mutex);
         plug_send_kp_event(p, kp.sym, kp.mods);
+        pthread_mutex_unlock(&single_thread_mutex);
 }
 
 static void
-resize_listener(int w, int h)
+resize_listener(int x, int y, int w, int h)
 {
-        window_resize_px(screen_window, h, w);
-        plug_send_resize_event(p, w, h);
-        ask_for_redraw();
+        pthread_mutex_lock(&single_thread_mutex);
+        plug_send_resize_event(p, x, y, w, h);
+        fb_clear(0xFF000000);
+        render_frame();
+        pthread_mutex_unlock(&single_thread_mutex);
 }
 
 static void
 pointer_listener(Pointer_Event e)
 {
+        pthread_mutex_lock(&single_thread_mutex);
         plug_send_mouse_event(p, e);
+        pthread_mutex_unlock(&single_thread_mutex);
 }
 
 static int
@@ -57,9 +73,7 @@ init_loop(char *ppath)
         // printf("(main.c: plugin -> %s)\n", ppath);
 
         p = plug_open(ppath);
-
-        screen_window = create_fullscreen_window();
-        p->window = screen_window;
+        p->window = create_fullscreen_window();
         assert(p->window);
 
         if (plug_exec(p)) return 1;
@@ -70,18 +84,15 @@ init_loop(char *ppath)
 
         // unsigned long frame = 0;
         for (;;) {
+                if (need_redraw) {
+                        pthread_mutex_lock(&single_thread_mutex);
+                        render_frame();
+                        pthread_mutex_unlock(&single_thread_mutex);
+                }
+
                 if (wayland_dispatch_events()) {
-                        // printf("Wayland ask to close\n");
                         break;
                 }
-
-                if (need_redraw) {
-                        need_redraw = false;
-                        if (p->render) p->render();
-                        wayland_present();
-                        // printf("wayland presents\n");
-                }
-
                 // printf("New frame %lu!\n", ++frame);
         }
 

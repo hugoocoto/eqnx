@@ -19,7 +19,7 @@ INCLUDES = -I. -Isrc -I$(WAYLAND_OUT_PATH) -Ithirdparty
 
 SRC = $(wildcard src/*.c)
 OBJ = $(patsubst src/%.c,$(OBJ_DIR)/src/%.o,$(SRC))
-HEADERS = $(wildcard src/*.c) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h
+HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h
 
 # Protocolos Wayland (Se compilan como objetos separados para el binario final)
 WAYLAND_SOURCES = $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \

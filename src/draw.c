@@ -240,7 +240,7 @@ draw_cp(Font *f, int c, int r, struct Char3 sc)
         int xx, yy, ax, lsb, bw, bh;
         unsigned char *bitmap;
 
-        bitmap = get_fontcp(f, sc.c, &xx, &yy, &bw, &bh, &ax, &lsb);
+        bitmap = get_fontcp(f, sc.cp, &xx, &yy, &bw, &bh, &ax, &lsb);
         // int border_size = 2;
         // draw_clear_rectangle(c, r, get_grid_width(f), f->l_h, border_size, 0xFFFFFFFF);                                         // border
         // draw_rectangle(c + border_size, r + border_size, get_grid_width(f) - 2 * border_size, f->l_h - 2 * border_size, sc.bg); // background
@@ -335,18 +335,21 @@ void
 draw_window(Window *win)
 {
         Font *f = get_default_font();
-        int pixel_r = 0;
+        int pixel_r = win->y * f->l_h;
         int pixel_c;
+
+        // printf("Drawing window at (%d,%d +%d,+%d)\n",
+               // win->x, win->y, win->w, win->h);
 
         int grid_width = get_grid_width(f);
 
         for (int r = 0; r < win->h; r++, pixel_r += f->l_h) {
-                pixel_c = 0;
+                pixel_c = win->x * grid_width;
 
                 for (int c = 0; c < win->w; c++, pixel_c += grid_width) {
                         struct Char3 sc = window_get(win, c, r);
 
-                        if (sc.c == 0) {
+                        if (sc.cp == 0) {
                                 continue;
                         }
 

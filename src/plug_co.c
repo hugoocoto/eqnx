@@ -29,14 +29,14 @@ plugin_new()
 typedef struct PlugUpwardsCall {
         void *arg;
         enum {
-                MAINLOOP,
+                MAINLOOP = 0xABC123, // avoid using other arguments as calls
                 RUN,
                 WINDOW_REQUEST,
         } type;
 } PlugUpwardsCall;
 
 EXPORTED Plugin *
-plug_run(char *plugpath)
+plug_run(char *plugpath, Window *w)
 {
         Plugin *plug;
         PlugUpwardsCall call = (PlugUpwardsCall) {
@@ -44,6 +44,7 @@ plug_run(char *plugpath)
                 .arg = plugpath,
         };
 
+        assert(mco_push(mco_running(), &w, sizeof(Window *)) == MCO_SUCCESS);
         assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
         assert(mco_yield(mco_running()) == MCO_SUCCESS);
         assert(mco_pop(mco_running(), &plug, sizeof(Plugin *)) == MCO_SUCCESS);
@@ -130,11 +131,11 @@ plug_open(const char *plugdir)
         free(s);
 
         plug->handle = handle;
-        printf("plugin setup (%s):\n", plug->name);
 
+        // printf("plugin setup (%s):\n", plug->name);
 /*   */ #define X(name)                                           \
         plug->name = dlsym(handle, #name) ?: (void *) plug->name; \
-        printf("+ %s: %p\n", #name, plug->name);
+        // printf("+ %s: %p\n", #name, plug->name);
         LIST_OF_CALLBACKS
 /*   */ #undef X
 
@@ -154,10 +155,12 @@ plug_send_mouse_event(Plugin *p, Pointer_Event e)
 }
 
 void
-plug_send_resize_event(Plugin *p, int w, int h)
+plug_send_resize_event(Plugin *p, int x, int y, int w, int h)
 {
+        assert(x >= 0 && y >= 0 && w >= 0 && h >= 0);
         if (!p) return;
-        if (p->resize) p->resize(w, h);
+        window_resize_px(p->window, x, y, w, h);
+        if (p->resize) p->resize(x, y, w, h);
 }
 
 void
@@ -194,7 +197,10 @@ mco_suspended_handler(Plugin *p)
 
         switch (call.type) {
         case RUN: {
+                Window *win;
                 Plugin *plug = plug_open(call.arg);
+                assert(mco_pop(p->co, &win, sizeof(Window *)) == MCO_SUCCESS);
+                plug->window = win;
                 if (!plug_exec(plug)) plug_add_child(p, plug);
                 assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
                 assert(mco_resume(p->co) == MCO_SUCCESS);
