@@ -9,3 +9,4 @@ plugins/*.d
 .gitignore
 wc.txt
 st
+*.png
