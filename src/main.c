@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <bits/pthreadtypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +24,10 @@ extern void draw_window(Window *win);
 
 static Plugin *p;
 static bool need_redraw = true;
+
+/* I use a lock on every callback call, so I make sure that plugin code is
+ * sequential for avoiding run conditions.
+ * */
 static pthread_mutex_t single_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void
