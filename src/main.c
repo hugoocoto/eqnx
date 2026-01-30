@@ -19,8 +19,6 @@
 // like assert but returns x
 #define inline_assert(x) ({__auto_type _x = x; assert(_x); _x; })
 
-extern void draw_window(Window *win);
-
 /* This plugin is the entry point of the program, it's the first and unique
  * plugin called from here */
 #define INIT_PLUGIN "./plugins/plugin.so"
@@ -39,6 +37,7 @@ render_frame()
         printf("Rendering frame\n");
         need_redraw = false;
         if (p->render) p->render();
+        draw_window(p->window);
         wayland_present();
 }
 

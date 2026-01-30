@@ -14,6 +14,7 @@
 #define CYAN 0xFF00FFFF
 #define WHITE 0xFFFFFFFF
 
+// If you define this globals, they are assigned at plugin creation
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;
 
@@ -42,7 +43,7 @@ pointer_event(Pointer_Event e)
 void
 render()
 {
-        // don't forget to call draw_window(self_window);
+        // Draw stuff in the window
 }
 
 // Main function - entry point.

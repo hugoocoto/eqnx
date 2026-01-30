@@ -26,7 +26,6 @@ void
 render()
 {
         window_setall(self_window, ' ', RED, RED);
-        draw_window(self_window);
 }
 
 int

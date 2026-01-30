@@ -127,7 +127,6 @@ render()
 {
         // assert(my_window);
         // if (last_pressed_char) window_setall(my_window, last_pressed_char, GRAY, BLACK);
-        draw_window(self_window);
 }
 
 int

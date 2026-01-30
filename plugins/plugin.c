@@ -80,7 +80,6 @@ render()
                 window_puts(self_window, 0, i, entry_arr.data[selected + i].name, WHITE, BLACK);
         }
 
-        draw_window(self_window);
 }
 
 void
