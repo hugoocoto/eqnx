@@ -11,7 +11,7 @@
 #define WHITE 0xFFFFFFFF
 
 int last_pressed_char = ' ';
-Window *my_window;
+Window *self_window;
 
 void
 resize(int x, int y, int w, int h)
@@ -74,48 +74,48 @@ mouse_event(Pointer_Event e)
         uint32_t fg = WHITE;
         switch (e.type) {
         case Pointer_Move:
-                draw_clear_line(my_window, 0);
-                window_printf(my_window, 0, 0, fg, bg,
+                draw_clear_line(self_window, 0);
+                window_printf(self_window, 0, 0, fg, bg,
                               "Pointer moves to: %d, %d (%d, %d)\n",
                               e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Enter:
-                draw_clear_line(my_window, 4);
-                window_printf(my_window, 0, 4, fg, bg,
+                draw_clear_line(self_window, 4);
+                window_printf(self_window, 0, 4, fg, bg,
                               "Pointer enter focus\n");
                 break;
         case Pointer_Leave:
-                draw_clear_line(my_window, 4);
-                window_printf(my_window, 0, 4, fg, bg,
+                draw_clear_line(self_window, 4);
+                window_printf(self_window, 0, 4, fg, bg,
                               "Pointer leaves focus\n");
                 break;
         case Pointer_Scroll:
-                draw_clear_line(my_window, 3);
-                window_printf(my_window, 0, 3, fg, bg,
+                draw_clear_line(self_window, 3);
+                window_printf(self_window, 0, 3, fg, bg,
                               "Pointer scrolls %d (on %d, %d (%d, %d))\n",
                               e.scroll, e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Scroll_Relative:
-                draw_clear_line(my_window, 3);
-                window_printf(my_window, 0, 3, fg, bg,
+                draw_clear_line(self_window, 3);
+                window_printf(self_window, 0, 3, fg, bg,
                               "Pointer scrolls relative axis=%d direction=%d (on %d, %d (%d, %d))\n",
                               e.axis, e.direction, e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Press:
-                draw_clear_line(my_window, 1);
-                window_printf(my_window, 0, 1, fg, bg,
+                draw_clear_line(self_window, 1);
+                window_printf(self_window, 0, 1, fg, bg,
                               "Pointer press %s (on %d, %d (%d, %d))\n",
                               btn_repr(e.btn), e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Release:
-                draw_clear_line(my_window, 1);
-                window_printf(my_window, 0, 1, fg, bg,
+                draw_clear_line(self_window, 1);
+                window_printf(self_window, 0, 1, fg, bg,
                               "Pointer release %s (on %d, %d (%d, %d))\n",
                               btn_repr(e.btn), e.x, e.y, e.px, e.py);
                 break;
         default:
-                draw_clear_line(my_window, 1);
-                window_printf(my_window, 0, 1, fg, bg,
+                draw_clear_line(self_window, 1);
+                window_printf(self_window, 0, 1, fg, bg,
                               "Unhandled mouse event %d\n", e.type);
                 return;
         }
@@ -127,7 +127,7 @@ render()
 {
         // assert(my_window);
         // if (last_pressed_char) window_setall(my_window, last_pressed_char, GRAY, BLACK);
-        draw_window(my_window);
+        draw_window(self_window);
 }
 
 int
@@ -135,7 +135,6 @@ main(int argc, char **argv)
 {
         assert(argc == 1);
         // printf("(Plugin: %s) Hello!\n", argv[0]);
-        my_window = request_window();
         mainloop();
         // printf("(Plugin: %s) returns\n", argv[0]);
         return 0;

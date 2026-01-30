@@ -42,8 +42,6 @@ extern void plug_send_kp_event(Plugin *p, int sym, int mods);
 extern void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
 extern void plug_send_mouse_event(Plugin *p, Pointer_Event);
 extern void ask_for_redraw();
-extern Window *request_window();
-extern Plugin *request_plug_info();
 extern void plug_replace_img(Plugin *current, char *plugpath);
 
 // from wayland_client.h

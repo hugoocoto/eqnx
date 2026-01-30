@@ -58,7 +58,7 @@ plug_replace_img(Plugin *current, char *plugpath)
         mco_destroy(current->co);
 
         // Remplace symbols and name
-        plug_open(plugpath, current);
+        plug_open(plugpath, current, current->window);
 
         // Run main
         plug_exec(current);
@@ -83,7 +83,7 @@ plug_run(char *plugpath, Window *w)
         return plug;
 }
 
-EXPORTED Plugin * // UGLY
+EXPORTED OBSOLETE Plugin * // UGLY
 request_plug_info()
 {
         Plugin *p;
@@ -96,7 +96,7 @@ request_plug_info()
         return p;
 }
 
-EXPORTED Window *
+EXPORTED OBSOLETE Window *
 request_window()
 {
         Window *win;
@@ -160,8 +160,9 @@ plug_release(Plugin *p)
 }
 
 Plugin *
-plug_open(const char *plugdir, Plugin *plug_info)
+plug_open(const char *plugdir, Plugin *plug_info, Window *window)
 {
+        assert(window);
         Plugin *plug = plug_info ?: plugin_new();
         void *handle = dlopen(plugdir, RTLD_NOW);
         if (!handle) {
@@ -175,6 +176,7 @@ plug_open(const char *plugdir, Plugin *plug_info)
         free(s);
 
         plug->handle = handle;
+        plug->window = window;
 
         printf("loading plugin symbols (%s):\n", plug->name);
 /*   */ #define X(_, name, ...)                                   \
@@ -182,6 +184,12 @@ plug_open(const char *plugdir, Plugin *plug_info)
         printf("+ %s: %p\n", #name, plug->name);
         LIST_OF_CALLBACKS
 /*   */ #undef X
+
+        // Crazy shit
+        Window **w = dlsym(handle, "self_window");
+        if (w) *w = plug->window;
+        Plugin **p = dlsym(handle, "self_plugin");
+        if (p) *p = plug;
 
         // Init plugin corrutine
         mco_desc desc = mco_desc_init(coro_entry, 0);
@@ -242,9 +250,8 @@ mco_suspended_handler(Plugin *p)
         switch (call.type) {
         case RUN: {
                 Window *win;
-                Plugin *plug = plug_open(call.arg, NULL);
                 assert(mco_pop(p->co, &win, sizeof(Window *)) == MCO_SUCCESS);
-                plug->window = win;
+                Plugin *plug = plug_open(call.arg, NULL, win);
                 if (!plug_exec(plug)) plug_add_child(p, plug);
                 assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
                 assert(mco_resume(p->co) == MCO_SUCCESS);

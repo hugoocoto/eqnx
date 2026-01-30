@@ -10,7 +10,7 @@
 #define BLUE 0xFF0000FF
 #define WHITE 0xFFFFFFFF
 
-static Window *my_window;
+Window *self_window;
 
 void
 resize(int x, int y, int w, int h)
@@ -25,15 +25,14 @@ kp_event(int sym, int mods)
 void
 render()
 {
-        window_setall(my_window, ' ', RED, RED);
-        draw_window(my_window);
+        window_setall(self_window, ' ', RED, RED);
+        draw_window(self_window);
 }
 
 int
 main(int argc, char **argv)
 {
         assert(argc == 1);
-        my_window = request_window();
         mainloop();
         return 0;
 }

@@ -136,8 +136,8 @@ window_px_to_coords(int px, int py, int *x, int *y)
 
         assert(grid_height > 0 && grid_width > 0);
 
-        *y = py / grid_height;
-        *x = px / grid_width;
+        if (y) *y = py / grid_height;
+        if (x) *x = px / grid_width;
 }
 
 int

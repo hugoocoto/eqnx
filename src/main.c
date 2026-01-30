@@ -16,6 +16,9 @@
 #define VERSION "unknown"
 #endif
 
+// like assert but returns x
+#define inline_assert(x) ({__auto_type _x = x; assert(_x); _x; })
+
 extern void draw_window(Window *win);
 
 /* This plugin is the entry point of the program, it's the first and unique
@@ -74,11 +77,7 @@ pointer_listener(Pointer_Event e)
 static int
 init_loop(char *ppath)
 {
-        // printf("(main.c: plugin -> %s)\n", ppath);
-
-        p = plug_open(ppath, NULL);
-        p->window = create_fullscreen_window();
-        assert(p->window);
+        p = plug_open(ppath, NULL, inline_assert(create_fullscreen_window()));
 
         if (plug_exec(p)) return 1;
 
@@ -102,7 +101,6 @@ init_loop(char *ppath)
 
         plug_release(p);
         plug_destroy(p);
-        // printf("(main.c) return\n");
         return 0;
 }
 

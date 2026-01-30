@@ -10,8 +10,8 @@
 #define BLUE 0xFF0000FF
 #define WHITE 0xFFFFFFFF
 
-static Window *my_window;
-static Window *split_left;
+Window *self_window;
+Window *split_left;
 static Window *split_right;
 static Plugin *plug_left;
 static Plugin *plug_right;
@@ -50,11 +50,10 @@ render()
 int
 main(int argc, char **argv)
 {
-        my_window = request_window();
-        int sw = my_window->w / 2;
+        int sw = self_window->w / 2;
 
-        split_left = window_cut(my_window, 0, 0, sw, my_window->h);
-        split_right = window_cut(my_window, sw, 0, my_window->w - sw, my_window->h);
+        split_left = window_cut(self_window, 0, 0, sw, self_window->h);
+        split_right = window_cut(self_window, sw, 0, self_window->w - sw, self_window->h);
         assert(split_left);
         assert(split_right);
         plug_left = plug_run("./plugins/color_blue.so", split_left);
