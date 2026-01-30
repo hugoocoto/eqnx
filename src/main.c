@@ -33,6 +33,7 @@ static pthread_mutex_t single_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 void
 render_frame()
 {
+        printf("Rendering frame\n");
         need_redraw = false;
         if (p->render) p->render();
         wayland_present();
@@ -75,7 +76,7 @@ init_loop(char *ppath)
 {
         // printf("(main.c: plugin -> %s)\n", ppath);
 
-        p = plug_open(ppath);
+        p = plug_open(ppath, NULL);
         p->window = create_fullscreen_window();
         assert(p->window);
 

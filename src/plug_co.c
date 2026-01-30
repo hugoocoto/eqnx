@@ -13,18 +13,18 @@
 
 int plugin_default_main(int argc, char **argv);
 
-#define X(name) .name = NULL,
 static Plugin *
 plugin_new()
 {
+/*   */ #define X(_, name, ...) .name = NULL,
         return memcpy(malloc(sizeof(Plugin)),
                       &(Plugin) {
                       // default values
                       .window = NULL,
                       LIST_OF_CALLBACKS },
                       sizeof(Plugin));
+/*   */ #undef X
 }
-#undef X
 
 typedef struct PlugUpwardsCall {
         void *arg;
@@ -32,8 +32,40 @@ typedef struct PlugUpwardsCall {
                 MAINLOOP = 0xABC123, // avoid using other arguments as calls
                 RUN,
                 WINDOW_REQUEST,
+                PLUG_INFO_REQUEST, // UGLY
         } type;
 } PlugUpwardsCall;
+
+EXPORTED void
+plug_replace_img(Plugin *current, char *plugpath)
+{
+        /* Problem that this function tries to solve:
+         *
+         * When the plugin that is going to be executed is not known at
+         * initialization of parent plugin, it's not possible to execute it
+         * before mainloop returns. This function is going to use the corrutine
+         * of the parent plugin to run the child plugin, as well as all use all
+         * the plugin information.
+         *
+         * problem 2: How do I know the plugin that is being executed?
+         * -> I'm passing it as an argument but I don't want to rely on user for
+         *  this kind of things. I can write a trampoline for each callback that
+         *  sets and resets the environment of the call, where I can store
+         *  metadata as this plugin info and the window structs.
+         */
+        // return from mainloop
+        mco_resume(current->co);
+        mco_destroy(current->co);
+
+        // Remplace symbols and name
+        plug_open(plugpath, current);
+
+        // Run main
+        plug_exec(current);
+
+        // return control to main thread after new plugin, at the same address
+        // of current, reaches mainloop.
+}
 
 EXPORTED Plugin *
 plug_run(char *plugpath, Window *w)
@@ -51,7 +83,20 @@ plug_run(char *plugpath, Window *w)
         return plug;
 }
 
-Window *
+EXPORTED Plugin * // UGLY
+request_plug_info()
+{
+        Plugin *p;
+        PlugUpwardsCall call = (PlugUpwardsCall) {
+                .type = PLUG_INFO_REQUEST,
+        };
+        assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
+        assert(mco_yield(mco_running()) == MCO_SUCCESS);
+        assert(mco_pop(mco_running(), &p, sizeof(Plugin *)) == MCO_SUCCESS);
+        return p;
+}
+
+EXPORTED Window *
 request_window()
 {
         Window *win;
@@ -85,7 +130,6 @@ coro_entry(mco_coro *co)
         UNUSED(status);
 }
 
-
 int
 plugin_default_main(int argc, char **argv)
 {
@@ -116,9 +160,9 @@ plug_release(Plugin *p)
 }
 
 Plugin *
-plug_open(const char *plugdir)
+plug_open(const char *plugdir, Plugin *plug_info)
 {
-        Plugin *plug = plugin_new();
+        Plugin *plug = plug_info ?: plugin_new();
         void *handle = dlopen(plugdir, RTLD_NOW);
         if (!handle) {
                 fprintf(stderr, "Error: dlopen: %s\n", dlerror());
@@ -132,10 +176,10 @@ plug_open(const char *plugdir)
 
         plug->handle = handle;
 
-        // printf("plugin setup (%s):\n", plug->name);
-/*   */ #define X(name)                                           \
+        printf("loading plugin symbols (%s):\n", plug->name);
+/*   */ #define X(_, name, ...)                                   \
         plug->name = dlsym(handle, #name) ?: (void *) plug->name; \
-        // printf("+ %s: %p\n", #name, plug->name);
+        printf("+ %s: %p\n", #name, plug->name);
         LIST_OF_CALLBACKS
 /*   */ #undef X
 
@@ -198,7 +242,7 @@ mco_suspended_handler(Plugin *p)
         switch (call.type) {
         case RUN: {
                 Window *win;
-                Plugin *plug = plug_open(call.arg);
+                Plugin *plug = plug_open(call.arg, NULL);
                 assert(mco_pop(p->co, &win, sizeof(Window *)) == MCO_SUCCESS);
                 plug->window = win;
                 if (!plug_exec(plug)) plug_add_child(p, plug);
@@ -208,6 +252,11 @@ mco_suspended_handler(Plugin *p)
 
         case WINDOW_REQUEST: {
                 assert(mco_push(p->co, &p->window, sizeof(Window *)) == MCO_SUCCESS);
+                assert(mco_resume(p->co) == MCO_SUCCESS);
+        } break;
+
+        case PLUG_INFO_REQUEST: { // UGLY
+                assert(mco_push(p->co, &p, sizeof(Plugin *)) == MCO_SUCCESS);
                 assert(mco_resume(p->co) == MCO_SUCCESS);
         } break;
 

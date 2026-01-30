@@ -43,33 +43,34 @@ extern void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
 extern void plug_send_mouse_event(Plugin *p, Pointer_Event);
 extern void ask_for_redraw();
 extern Window *request_window();
-int fb_capture(char *filename);
+extern Plugin *request_plug_info();
+extern void plug_replace_img(Plugin *current, char *plugpath);
 
+// from wayland_client.h
+extern int fb_capture(char *filename);
+
+#define LIST_OF_CALLBACKS                    \
+        X(int, main, int, char **)           \
+        X(int, event, Event)                 \
+        X(int, kp_event, int sym, int mods)  \
+        X(int, pointer_event, Pointer_Event) \
+        X(int, render)                       \
+        X(int, resize, int x, int y, int w, int h)
+
+#define X(ret, func, ...) ret (*func)(__VA_ARGS__);
 typedef struct Plugin {
         char name[32];
-        int (*main)(int, char **);
-        int (*event)(Event);
-        int (*kp_event)(int sym, int mods);
-        int (*pointer_event)(Pointer_Event);
-        int (*render)();
-        int (*resize)(int x, int y, int w, int h);
         void *handle;
         Window *window;
         void *co;
+        LIST_OF_CALLBACKS;
         struct {
                 struct Plugin **data;
                 int capacity;
                 int count;
         } children;
 } Plugin;
-
-#define LIST_OF_CALLBACKS \
-        X(main)           \
-        X(render)         \
-        X(event)          \
-        X(kp_event)       \
-        X(pointer_event)  \
-        X(resize)
+#undef X
 
 #define mouse_event pointer_event
 

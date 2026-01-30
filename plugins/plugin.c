@@ -10,59 +10,45 @@
 #define BLUE 0xFF0000FF
 #define WHITE 0xFFFFFFFF
 
-static Window *my_window;
-static Window *split_left;
-static Window *split_right;
-static Plugin *plug_left;
-static Plugin *plug_right;
+static Window *window;
+static Plugin *plug;
 
 void
 resize(int x, int y, int w, int h)
 {
-        assert(x == 0);
-        assert(y == 0);
-        int sw = w / 2;
-        plug_send_resize_event(plug_left, x, y, sw, h);
-        plug_send_resize_event(plug_right, x + sw, y, w - sw, h);
 }
 
 void
 kp_event(int sym, int mods)
 {
-        plug_send_kp_event(plug_left, sym, mods);
-        plug_send_kp_event(plug_right, sym, mods);
+        printf("Sym: %d\n", sym);
+        if (sym == ' ') {
+                printf("Replacing image with %s\n", "./plugins/color_red.so");
+                plug_replace_img(plug, "./plugins/color_red.so");
+        }
+        ask_for_redraw();
 }
 
 void
 pointer_event(Pointer_Event e)
 {
-        plug_send_mouse_event(plug_left, e);
-        plug_send_mouse_event(plug_right, e);
 }
 
 void
 render()
 {
-        plug_left->render();
-        plug_right->render();
+        window_setall(window, '0', RED, BLACK);
+        draw_window(window);
 }
 
 int
 main(int argc, char **argv)
 {
-        my_window = request_window();
-        int sw = my_window->w / 2;
+        window = request_window();
+        plug = request_plug_info();
 
-        split_left = window_cut(my_window, 0, 0, sw, my_window->h);
-        split_right = window_cut(my_window, sw, 0, my_window->w - sw, my_window->h);
-        assert(split_left);
-        assert(split_right);
-        plug_left = plug_run("./plugins/color_blue.so", split_left);
-        plug_right = plug_run("./plugins/color_red.so", split_right);
-        assert(plug_right);
-        assert(plug_left);
-
-        ask_for_redraw();
+        printf("Plugin %s start\n", argv[0]);
         mainloop();
+        printf("Plugin %s end\n", argv[0]);
         return 0;
 }
