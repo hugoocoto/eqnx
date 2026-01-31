@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "event.h"
 #include "flag.h"
@@ -42,7 +43,6 @@ static pthread_mutex_t single_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 void
 render_frame()
 {
-        printf("render frame\n");
         need_redraw = false;
         if (p->render) p->render();
         assert(p->window);
@@ -93,6 +93,21 @@ send_resize_event()
         } while (0);
 }
 
+static void
+print_fps()
+{
+        static time_t last_t = -1;
+        static float fps = 0;
+        time_t t;
+        time(&t);
+        fps++;
+        if (last_t != t) {
+                printf("FPS: %f\n", fps / (t - last_t));
+                last_t = t;
+                fps = 0;
+        }
+}
+
 static int
 init_loop(char *ppath)
 {
@@ -116,13 +131,12 @@ init_loop(char *ppath)
                         break;
                 }
 
-                printf("wayland_dispatch_events returns\n");
-
                 if (need_redraw) {
                         pthread_mutex_lock(&single_thread_mutex);
                         render_frame();
                         pthread_mutex_unlock(&single_thread_mutex);
                 }
+                print_fps();
         }
 
         plug_release(p);

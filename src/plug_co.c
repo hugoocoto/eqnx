@@ -21,7 +21,8 @@ static char *
 plugin_tmp_cpy(const char *path)
 {
         char template[] = "/tmp/eqnx_plugin_XXXXXX";
-        char buffer[1024];
+        size_t size = sysconf(_SC_PAGESIZE);
+        char *buffer = alloca(size);
         ssize_t n;
         ssize_t o;
 
@@ -31,7 +32,7 @@ plugin_tmp_cpy(const char *path)
         assert(fdin >= 0);
 
         for (;;) {
-                n = read(fdin, buffer, sizeof buffer);
+                n = read(fdin, buffer, size);
                 assert(n >= 0);
                 if (n == 0) break;
                 o = write(fdout, buffer, n);

@@ -65,10 +65,6 @@ static char *current_title = NULL;
 static bool init = 0;
 static bool configured = false;
 
-/* Control de flujo de cuadros (VSync) */
-static struct wl_callback *frame_callback = NULL;
-static bool waiting_for_frame = false;
-
 struct Framebuffer {
         struct wl_buffer *buffers[2];
         bool busy[2];
@@ -613,16 +609,6 @@ registry_handle_global_remove(void *d, struct wl_registry *r, uint32_t n)
 }
 static const struct wl_registry_listener registry_listener = { .global = registry_handle_global, .global_remove = registry_handle_global_remove };
 
-static void redraw(void *data, struct wl_callback *callback, uint32_t time);
-static const struct wl_callback_listener frame_listener = { .done = redraw };
-
-static void
-redraw(void *data, struct wl_callback *callback, uint32_t time)
-{
-        wl_callback_destroy(callback);
-        waiting_for_frame = false;
-}
-
 static void
 surface_enter(void *d, struct wl_surface *s, struct wl_output *o)
 {
@@ -646,21 +632,12 @@ wayland_present(void)
 {
         if (should_quit || !surface || !configured) return;
 
-        if (waiting_for_frame) {
-                printf("wayland present returns: waiting for frame\n");
-                return;
-        }
-
         struct wl_buffer *buffer = fb_get_ready_buffer();
         if (!buffer) return;
 
         wl_surface_set_buffer_scale(surface, current_output_scale);
         wl_surface_attach(surface, buffer, 0, 0);
         wl_surface_damage(surface, 0, 0, screen_fb.logical_w, screen_fb.logical_h);
-
-        struct wl_callback *cb = wl_surface_frame(surface);
-        wl_callback_add_listener(cb, &frame_listener, NULL);
-        waiting_for_frame = false;
 
         wl_surface_commit(surface);
         fb_swap();
@@ -741,7 +718,6 @@ wayland_dispatch_events(void)
 void
 wayland_cleanup(void)
 {
-        if (frame_callback) wl_callback_destroy(frame_callback);
         fb_destroy();
         if (cursor_surface) wl_surface_destroy(cursor_surface);
         if (cursor_theme) wl_cursor_theme_destroy(cursor_theme);

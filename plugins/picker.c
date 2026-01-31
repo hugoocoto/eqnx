@@ -56,7 +56,6 @@ build_path(char *path, char *name)
 void
 resize(int x, int y, int w, int h)
 {
-        printf("Picker) Getting real window size\n");
         window_px_to_coords(0, h, 0, &rows);
         selected = 0;
         ask_for_redraw();
@@ -74,17 +73,13 @@ kp_event(int sym, int mods)
 void
 render()
 {
-        printf("plugin_render rows=%d\n", rows);
         if (rows == 0) return;
         int page = selected / rows;
         int max = (page + 1) * rows;
         if (max > entry_arr.size - 1) max = entry_arr.size - 1;
 
-        printf("plugin render clearing window\n");
         draw_clear_window(self_window);
-        printf("plugin render itering from %d to %d\n", page * rows, max);
         for (int i = page * rows; i < max; i++) {
-                printf("%d\n", i);
                 if (i == selected) {
                         window_puts(self_window, 0, i - page * rows, entry_arr.data[i].name, BLACK, WHITE);
                         continue;
@@ -97,7 +92,6 @@ void
 add_entries(DIR *dir)
 {
         struct dirent *entry;
-        printf("Adding entries\n");
         while ((entry = readdir(dir))) {
                 if (!strendswith(entry->d_name, ".so")) continue;
                 da_append(&entry_arr, (Entry) {
@@ -105,7 +99,6 @@ add_entries(DIR *dir)
                                       .type = 0,
                                       });
         }
-        printf("entries: %d\n", entry_arr.size);
 }
 
 int

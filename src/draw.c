@@ -334,26 +334,18 @@ get_grid_width(Font *f)
 void
 draw_window(Window *win)
 {
-        printf("Drawing window\n");
         Font *f = get_default_font();
         int pixel_r = win->y * f->l_h;
         int pixel_c;
-
-        // printf("Drawing window at (%d,%d +%d,+%d)\n",
-               // win->x, win->y, win->w, win->h);
-
         int grid_width = get_grid_width(f);
 
         for (int r = 0; r < win->h; r++, pixel_r += f->l_h) {
                 pixel_c = win->x * grid_width;
-
                 for (int c = 0; c < win->w; c++, pixel_c += grid_width) {
                         struct Char3 sc = window_get(win, c, r);
-
                         if (sc.cp == 0) {
                                 continue;
                         }
-
                         draw_cp(f, pixel_c, pixel_r, sc);
                 }
         }
