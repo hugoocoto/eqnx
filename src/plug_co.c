@@ -22,6 +22,7 @@ plugin_tmp_cpy(const char *path)
 {
         char template[] = "/tmp/eqnx_plugin_XXXXXX";
         size_t size = sysconf(_SC_PAGESIZE);
+        assert(size != -1);
         char *buffer = alloca(size);
         ssize_t n;
         ssize_t o;
