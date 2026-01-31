@@ -1,5 +1,0 @@
-Problema 1: Cada .so comparte memoria
-=> no se pueden lanzar dos plugins iguales
-
-Solucion 1: Llamar al .c y recompilar de cada vez
--> Solucion 2: Hacer una copia del so y abrir la copia

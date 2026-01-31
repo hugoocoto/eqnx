@@ -1,5 +1,9 @@
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <libgen.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "plug_api.h"
 #include "plug_co.h"
@@ -10,8 +14,32 @@
 #define EXPORTED // mark functions as part of the api
 #define UNUSED(x) ((void) (x))
 
-
 int plugin_default_main(int argc, char **argv);
+
+// copy plugin.so into a temp file and return the (strdup) name of the new file.
+static char *
+plugin_tmp_cpy(const char *path)
+{
+        char template[] = "/tmp/eqnx_plugin_XXXXXX";
+        char buffer[1024];
+        ssize_t n;
+        ssize_t o;
+
+        int fdout = mkstemp(template);
+        int fdin = open(path, O_RDONLY);
+        assert(fdout >= 0);
+        assert(fdin >= 0);
+
+        for (;;) {
+                n = read(fdin, buffer, sizeof buffer);
+                assert(n >= 0);
+                if (n == 0) break;
+                o = write(fdout, buffer, n);
+                assert(n == o);
+        }
+        printf("Copied %s into %s\n", path, template);
+        return strdup(template);
+}
 
 static Plugin *
 plugin_new()
@@ -164,7 +192,11 @@ plug_open(const char *plugdir, Plugin *plug_info, Window *window)
 {
         assert(window);
         Plugin *plug = plug_info ?: plugin_new();
-        void *handle = dlopen(plugdir, RTLD_NOW);
+        char *copy = plugin_tmp_cpy(plugdir);
+        void *handle = dlopen(copy, RTLD_NOW);
+        printf("dlopen %s (%s) succeed\n", plugdir, copy);
+        free(copy);
+
         if (!handle) {
                 fprintf(stderr, "Error: dlopen: %s\n", dlerror());
                 plug_destroy(plug);
