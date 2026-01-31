@@ -56,8 +56,8 @@ main(int argc, char **argv)
         split_right = window_cut(self_window, sw, 0, self_window->w - sw, self_window->h);
         assert(split_left);
         assert(split_right);
-        plug_left = plug_run("./plugins/color_blue.so", split_left);
-        plug_right = plug_run("./plugins/color_red.so", split_right);
+        plug_left = plug_run("./plugins/color_red.so", split_left);
+        plug_right = plug_run("./plugins/picker.so", split_right);
         assert(plug_right);
         assert(plug_left);
 

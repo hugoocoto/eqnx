@@ -334,6 +334,7 @@ get_grid_width(Font *f)
 void
 draw_window(Window *win)
 {
+        printf("Drawing window\n");
         Font *f = get_default_font();
         int pixel_r = win->y * f->l_h;
         int pixel_c;

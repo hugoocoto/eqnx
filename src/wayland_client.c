@@ -501,7 +501,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t seri
 
         int w = pending_width;
         int h = pending_height;
-        if (w == 0) w = 800; // Tamaño por defecto si no lo da el WM
+        if (w == 0) w = 800; // Tamaño por defecto
         if (h == 0) h = 600;
 
         if (w != screen_fb.logical_w || h != screen_fb.logical_h) {
@@ -646,7 +646,10 @@ wayland_present(void)
 {
         if (should_quit || !surface || !configured) return;
 
-        if (waiting_for_frame) return;
+        if (waiting_for_frame) {
+                printf("wayland present returns: waiting for frame\n");
+                return;
+        }
 
         struct wl_buffer *buffer = fb_get_ready_buffer();
         if (!buffer) return;
@@ -657,7 +660,7 @@ wayland_present(void)
 
         struct wl_callback *cb = wl_surface_frame(surface);
         wl_callback_add_listener(cb, &frame_listener, NULL);
-        waiting_for_frame = true;
+        waiting_for_frame = false;
 
         wl_surface_commit(surface);
         fb_swap();

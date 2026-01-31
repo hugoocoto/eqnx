@@ -1,14 +1,10 @@
 #include <assert.h>
-#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "../src/plug_api.h"
-#include "da.h"
 
+// Pure colors. uint32_t numbers
 #define BLACK 0xFF000000
 #define RED 0xFFFF0000
 #define GREEN 0xFF00FF00
@@ -18,90 +14,63 @@
 #define CYAN 0xFF00FFFF
 #define WHITE 0xFFFFFFFF
 
+/* On parallelism: As the plugin system is single-thread by design, calling api
+ * functions from other threads may derive in unexpected results. It's permitted
+ * to use more than one thread, once just the main one do the api calls. For
+ * example, another thread can modify globals asynchronously, and the render
+ * function can use this globals to update the window. Updating the window from
+ * another thread is considered unexpected behaviour.
+ *
+ * TLDR: The api callbacks are defined in `plugin_api.h` and you can only call
+ * api functions from this callbacks. Doing this from other threads is UB.
+ */
+
+// If you define this globals, they are assigned at plugin creation.
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;
 
-#define PATH "./plugins/"
-
-extern int closedir(DIR *);
-extern DIR *opendir(const char *);
-extern struct dirent *readdir(DIR *);
-
-typedef struct Entry {
-        char *name;
-        int type;
-} Entry;
-
-struct {
-        int capacity;
-        int size;
-        Entry *data;
-} entry_arr = { 0 };
-int selected = 0;
-int cols = -1;
-
-char *
-build_path(char *path, char *name)
-{
-        static char buffer[1024];
-        snprintf(buffer, sizeof buffer, "%s/%s", path, name);
-        return buffer;
-}
-
+// This function is called when window is resized. Top left corner is on x,y
+// pixels, with w and h pixels width and height. Use window_px_to_coords() to
+// get the window size in chars.
 void
 resize(int x, int y, int w, int h)
 {
-        window_px_to_coords(w, 0, &cols, NULL);
-        ask_for_redraw();
-        selected = 0;
+        // (How to) get size in chars
+        // int cx, cy, cw, ch;
+        // window_px_to_coords(x, y, &cx, &cy);
+        // window_px_to_coords(w, h, &cw, &ch);
 }
 
+// Keypress event. A key has been pressed
 void
 kp_event(int sym, int mods)
 {
-        if (sym == 'j') selected = (selected + 1) % (entry_arr.size - 1);
-        if (sym == 'k') selected = ((entry_arr.size - 1) + selected - 1) % (entry_arr.size - 1);
-        if (sym == XKB_KEY_Return) plug_replace_img(self_plugin, build_path(PATH, entry_arr.data[selected].name));
-        if (sym == ' ') plug_replace_img(self_plugin, "./plugins/color_red.so");
-        ask_for_redraw();
 }
 
+// Pointer event. A mouse event (movement, click, scroll) has happened.
+void
+pointer_event(Pointer_Event e)
+{
+}
+
+// This function is called when the program request a new frame. You can request
+// a new frame from other functions using ask_for_redraw().
 void
 render()
 {
-        int max = entry_arr.size - selected - 1;
-        if (max > cols) max = cols;
-        printf("cols: %d - selected: %d\n", max, selected);
-
-        if (max == 0) return;
-        draw_clear_window(self_window);
-        window_puts(self_window, 0, 0, entry_arr.data[selected].name, BLACK, WHITE);
-        for (int i = 1; i < max; i++) {
-                window_puts(self_window, 0, i, entry_arr.data[selected + i].name, WHITE, BLACK);
-        }
-
+        // Draw stuff in the window here
 }
 
-void
-add_entries(DIR *dir)
-{
-        struct dirent *entry;
-        while ((entry = readdir(dir))) {
-                da_append(&entry_arr, (Entry) {
-                                      .name = strdup(entry->d_name),
-                                      .type = 0,
-                                      });
-        }
-        printf("entries: %d\n", entry_arr.size);
-}
-
+// Main function - entry point.
 int
 main(int argc, char **argv)
 {
-        DIR *dir = opendir(PATH);
-        assert(dir);
-        window_px_to_coords(self_window->w, 0, &cols, NULL);
-        add_entries(dir);
+        /* Your initializations here */
+
+        // Start receiving events. This is a blocking function.
         mainloop();
+
+        /* Your deinitializations here */
+
         return 0;
 }

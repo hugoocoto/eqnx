@@ -14,7 +14,7 @@ XDG_SHELL_XML = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
 XDG_DECOR_XML = $(WAYLAND_PROTOCOLS_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
 
 FLAGS = -Wall -Wextra -Wno-unused-parameter -ggdb -rdynamic -fPIC 
-LIBS = -lrt -lwayland-client -lwayland-cursor -lxkbcommon -lm -lfontconfig
+LIBS = -lwayland-client -lwayland-cursor -lxkbcommon -lm -lfontconfig -ldl
 INCLUDES = -I. -Isrc -I$(WAYLAND_OUT_PATH) -Ithirdparty
 
 SRC = $(wildcard src/*.c)

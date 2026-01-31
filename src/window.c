@@ -160,18 +160,8 @@ create_fullscreen_window()
         fb_get_size(&fb_w, &fb_h);
         assert(fb_w > 0 && fb_h > 0);
 
-        Font *f = get_default_font();
-        assert(f != NULL);
-
-        int grid_height = f->l_h;
-        int ax, lsb;
-        stbtt_GetCodepointHMetrics(&f->info, 'A', &ax, &lsb);
-        int grid_width = roundf(ax * f->scale);
-
-        assert(grid_height > 0 && grid_width > 0);
-
-        int rows = fb_h / grid_height;
-        int cols = fb_w / grid_width;
+        int rows, cols;
+        window_px_to_coords(fb_w, fb_h, &rows, &cols);
 
         Window *win = window_create(0, 0, rows, cols);
 

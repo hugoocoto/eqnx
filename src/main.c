@@ -11,6 +11,13 @@
 #include "wayland_client.h"
 #include "window.h"
 
+#define GRAY 0xFF666666
+#define BLACK 0xFF000000
+#define RED 0xFFFF0000
+#define GREEN 0xFF00FF00
+#define BLUE 0xFF0000FF
+#define WHITE 0xFFFFFFFF
+
 #ifndef VERSION
 // version is defined in makefile
 #define VERSION "unknown"
@@ -21,9 +28,10 @@
 
 /* This plugin is the entry point of the program, it's the first and unique
  * plugin called from here */
-#define INIT_PLUGIN "./plugins/plugin.so"
+#define INIT_PLUGIN "./plugins/picker.so"
 
 static Plugin *p;
+static Window *window;
 static bool need_redraw = true;
 
 /* I use a lock on every callback call, so I make sure that plugin code is
@@ -34,9 +42,10 @@ static pthread_mutex_t single_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
 void
 render_frame()
 {
-        printf("Rendering frame\n");
+        printf("render frame\n");
         need_redraw = false;
         if (p->render) p->render();
+        assert(p->window);
         draw_window(p->window);
         wayland_present();
 }
@@ -61,7 +70,7 @@ resize_listener(int x, int y, int w, int h)
         pthread_mutex_lock(&single_thread_mutex);
         plug_send_resize_event(p, x, y, w, h);
         fb_clear(0xFF000000);
-        render_frame();
+        ask_for_redraw();
         pthread_mutex_unlock(&single_thread_mutex);
 }
 
@@ -73,29 +82,47 @@ pointer_listener(Pointer_Event e)
         pthread_mutex_unlock(&single_thread_mutex);
 }
 
+static void
+send_resize_event()
+{
+        do {
+                int w, h;
+                fb_get_size(&w, &h);
+                assert(w > 0 && h > 0);
+                resize_listener(0, 0, w, h);
+        } while (0);
+}
+
 static int
 init_loop(char *ppath)
 {
-        p = plug_open(ppath, NULL, inline_assert(create_fullscreen_window()));
-
-        if (plug_exec(p)) return 1;
+        window = create_fullscreen_window();
+        assert(window);
+        p = plug_open(ppath, NULL, window);
+        assert(p);
 
         add_keypress_listener(keypress_listener);
         add_resize_listener(resize_listener);
         add_pointer_listener(pointer_listener);
 
-        // unsigned long frame = 0;
+        send_resize_event();
+
+        if (plug_exec(p)) return 1;
+
+        send_resize_event();
+
         for (;;) {
+                if (wayland_dispatch_events()) {
+                        break;
+                }
+
+                printf("wayland_dispatch_events returns\n");
+
                 if (need_redraw) {
                         pthread_mutex_lock(&single_thread_mutex);
                         render_frame();
                         pthread_mutex_unlock(&single_thread_mutex);
                 }
-
-                if (wayland_dispatch_events()) {
-                        break;
-                }
-                // printf("New frame %lu!\n", ++frame);
         }
 
         plug_release(p);

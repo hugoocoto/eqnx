@@ -13,16 +13,6 @@
 Window *self_window;
 
 void
-resize(int x, int y, int w, int h)
-{
-}
-
-void
-kp_event(int sym, int mods)
-{
-}
-
-void
 render()
 {
         window_setall(self_window, ' ', BLUE, BLUE);
@@ -31,7 +21,6 @@ render()
 int
 main(int argc, char **argv)
 {
-        assert(argc == 1);
         mainloop();
         return 0;
 }

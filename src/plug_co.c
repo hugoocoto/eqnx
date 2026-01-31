@@ -177,6 +177,7 @@ plug_open(const char *plugdir, Plugin *plug_info, Window *window)
 
         plug->handle = handle;
         plug->window = window;
+        assert(plug->window);
 
         printf("loading plugin symbols (%s):\n", plug->name);
 /*   */ #define X(_, name, ...)                                   \
@@ -185,17 +186,20 @@ plug_open(const char *plugdir, Plugin *plug_info, Window *window)
         LIST_OF_CALLBACKS
 /*   */ #undef X
 
+        assert(plug->window);
         // Crazy shit
         Window **w = dlsym(handle, "self_window");
         if (w) *w = plug->window;
         Plugin **p = dlsym(handle, "self_plugin");
         if (p) *p = plug;
 
+        assert(plug->window);
         // Init plugin corrutine
         mco_desc desc = mco_desc_init(coro_entry, 0);
         desc.user_data = plug;
         assert(mco_create((mco_coro **) &plug->co, &desc) == MCO_SUCCESS);
         assert(mco_status(plug->co) == MCO_SUSPENDED);
+        assert(plug->window);
         return plug;
 }
 
