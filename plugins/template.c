@@ -14,16 +14,31 @@
 #define CYAN 0xFF00FFFF
 #define WHITE 0xFFFFFFFF
 
-// If you define this globals, they are assigned at plugin creation
+/* On parallelism: As the plugin system is single-thread by design, calling api
+ * functions from other threads may derive in unexpected results. It's permitted
+ * to use more than one thread, once just the main one do the api calls. For
+ * example, another thread can modify globals asynchronously, and the render
+ * function can use this globals to update the window. Updating the window from
+ * another thread is considered unexpected behaviour.
+ *
+ * TLDR: The api callbacks are defined in `plugin_api.h` and you can only call
+ * api functions from this callbacks. Doing this from other threads is UB.
+ */
+
+// If you define this globals, they are assigned at plugin creation.
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;
 
-// Window has been resized! Top left forner is on x,y pixels, with w and h
-// pixels width and height. Use window_px_to_coords() to get the window size
-// in chars.
+// This function is called when window is resized. Top left corner is on x,y
+// pixels, with w and h pixels width and height. Use window_px_to_coords() to
+// get the window size in chars.
 void
 resize(int x, int y, int w, int h)
 {
+        // (How to) get size in chars
+        // int cx, cy, cw, ch;
+        // window_px_to_coords(x, y, &cx, &cy);
+        // window_px_to_coords(w, h, &cw, &ch);
 }
 
 // Keypress event. A key has been pressed
@@ -43,19 +58,19 @@ pointer_event(Pointer_Event e)
 void
 render()
 {
-        // Draw stuff in the window
+        // Draw stuff in the window here
 }
 
 // Main function - entry point.
 int
 main(int argc, char **argv)
 {
-        /* Your initializations here*/
+        /* Your initializations here */
 
         // Start receiving events. This is a blocking function.
         mainloop();
 
-        /* Your deinitializations here*/
+        /* Your deinitializations here */
 
         return 0;
 }
