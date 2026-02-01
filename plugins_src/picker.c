@@ -91,7 +91,6 @@ match(char *s1, char *s2)
 __attribute__((constructor)) void
 test()
 {
-        puts("-- Test --");
         assert(match("", "hello"));
         assert(match("h", "hello"));
         assert(match("hl", "hello"));

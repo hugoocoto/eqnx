@@ -109,7 +109,6 @@ static int
 init_loop(char *ppath)
 {
         if (setjmp(safe_jmp_env)) {
-                puts("on safe jump cond");
                 goto loop;
         }
 
@@ -137,7 +136,7 @@ loop:
                 if (need_redraw) {
                         render_frame();
                 }
-                print_fps();
+                // print_fps();
         }
 
         plug_release(p);

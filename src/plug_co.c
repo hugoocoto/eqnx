@@ -20,14 +20,14 @@ int plugin_default_main(int argc, char **argv);
 static char *
 plugin_tmp_cpy(const char *path)
 {
-        char template[] = "/tmp/eqnx_plugin_XXXXXX";
+        char template[] = "/tmp/eqnx_plugin_XXXXXX.so";
         ssize_t size = sysconf(_SC_PAGESIZE);
         assert(size != -1);
         char *buffer = alloca(size);
         ssize_t n;
         ssize_t o;
 
-        int fdout = mkstemp(template);
+        int fdout = mkstemps(template, 3);
         int fdin = open(path, O_RDONLY);
         assert(fdout >= 0);
         assert(fdin >= 0);
@@ -39,7 +39,7 @@ plugin_tmp_cpy(const char *path)
                 o = write(fdout, buffer, n);
                 assert(n == o);
         }
-        printf("Copied %s into %s\n", path, template);
+        printf("Copied %s to %s\n", path, template);
         return strdup(template);
 }
 
@@ -84,27 +84,21 @@ plug_replace_img(Plugin *current, char *plugpath)
          *  metadata as this plugin info and the window structs.
          */
         // return from mainloop
-        puts("mco resume");
         mco_resume(current->co);
-        puts("mco destroy");
         mco_destroy(current->co);
 
         // Remplace symbols and name
-        puts("plug open");
         plug_open(plugpath, current, current->window);
 
         send_resize_event();
         // Run main
-        puts("plug exec");
         plug_exec(current);
 
         send_resize_event();
 
         // return control to main thread after new plugin, at the same address
         // of current, reaches mainloop.
-        puts("plug safe restart");
         plug_safe_restart();
-        puts("unreachable");
         abort();
 }
 
