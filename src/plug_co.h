@@ -17,5 +17,7 @@ OBSOLETE Window *request_window();
 OBSOLETE Plugin *request_plug_info();
 
 void plug_replace_img(Plugin *current, char *plugpath);
+void plug_safe_restart();
+void send_resize_event();
 
 #endif

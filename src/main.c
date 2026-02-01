@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <pthread.h>
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -34,11 +35,7 @@
 static Plugin *p;
 static Window *window;
 static bool need_redraw = true;
-
-/* I use a lock on every callback call, so I make sure that plugin code is
- * sequential for avoiding run conditions.
- * */
-static pthread_mutex_t single_thread_mutex = PTHREAD_MUTEX_INITIALIZER;
+static jmp_buf safe_jmp_env;
 
 void
 render_frame()
@@ -59,30 +56,24 @@ ask_for_redraw()
 static void
 keypress_listener(Keypress kp)
 {
-        pthread_mutex_lock(&single_thread_mutex);
         plug_send_kp_event(p, kp.sym, kp.mods);
-        pthread_mutex_unlock(&single_thread_mutex);
 }
 
 static void
 resize_listener(int x, int y, int w, int h)
 {
-        pthread_mutex_lock(&single_thread_mutex);
         plug_send_resize_event(p, x, y, w, h);
         fb_clear(0xFF000000);
         ask_for_redraw();
-        pthread_mutex_unlock(&single_thread_mutex);
 }
 
 static void
 pointer_listener(Pointer_Event e)
 {
-        pthread_mutex_lock(&single_thread_mutex);
         plug_send_mouse_event(p, e);
-        pthread_mutex_unlock(&single_thread_mutex);
 }
 
-static void
+void
 send_resize_event()
 {
         do {
@@ -108,9 +99,20 @@ print_fps()
         }
 }
 
+void
+plug_safe_restart()
+{
+        longjmp(safe_jmp_env, 1);
+}
+
 static int
 init_loop(char *ppath)
 {
+        if (setjmp(safe_jmp_env)) {
+                puts("on safe jump cond");
+                goto loop;
+        }
+
         window = create_fullscreen_window();
         assert(window);
         p = plug_open(ppath, NULL, window);
@@ -126,15 +128,14 @@ init_loop(char *ppath)
 
         send_resize_event();
 
+loop:
         for (;;) {
                 if (wayland_dispatch_events()) {
                         break;
                 }
 
                 if (need_redraw) {
-                        pthread_mutex_lock(&single_thread_mutex);
                         render_frame();
-                        pthread_mutex_unlock(&single_thread_mutex);
                 }
                 print_fps();
         }

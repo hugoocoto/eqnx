@@ -21,7 +21,7 @@ static char *
 plugin_tmp_cpy(const char *path)
 {
         char template[] = "/tmp/eqnx_plugin_XXXXXX";
-        size_t size = sysconf(_SC_PAGESIZE);
+        ssize_t size = sysconf(_SC_PAGESIZE);
         assert(size != -1);
         char *buffer = alloca(size);
         ssize_t n;
@@ -84,17 +84,28 @@ plug_replace_img(Plugin *current, char *plugpath)
          *  metadata as this plugin info and the window structs.
          */
         // return from mainloop
+        puts("mco resume");
         mco_resume(current->co);
+        puts("mco destroy");
         mco_destroy(current->co);
 
         // Remplace symbols and name
+        puts("plug open");
         plug_open(plugpath, current, current->window);
 
+        send_resize_event();
         // Run main
+        puts("plug exec");
         plug_exec(current);
+
+        send_resize_event();
 
         // return control to main thread after new plugin, at the same address
         // of current, reaches mainloop.
+        puts("plug safe restart");
+        plug_safe_restart();
+        puts("unreachable");
+        abort();
 }
 
 EXPORTED Plugin *
@@ -194,9 +205,10 @@ plug_open(const char *plugdir, Plugin *plug_info, Window *window)
 {
         assert(window);
         Plugin *plug = plug_info ?: plugin_new();
+
         char *copy = plugin_tmp_cpy(plugdir);
         void *handle = dlopen(copy, RTLD_NOW);
-        printf("dlopen %s (%s) succeed\n", plugdir, copy);
+        printf("dlopen %s (%s) succeed -> handle %p\n", plugdir, copy, handle);
         free(copy);
 
         if (!handle) {
@@ -209,31 +221,33 @@ plug_open(const char *plugdir, Plugin *plug_info, Window *window)
         strncpy(plug->name, basename(s), sizeof plug->name - 1);
         free(s);
 
+        // if (plug->handle) dlclose(plug->handle);
         plug->handle = handle;
         plug->window = window;
-        assert(plug->window);
 
         printf("loading plugin symbols (%s):\n", plug->name);
-/*   */ #define X(_, name, ...)                                   \
-        plug->name = dlsym(handle, #name) ?: (void *) plug->name; \
+/*   */ #define X(_, name, ...)            \
+        plug->name = dlsym(handle, #name); \
         printf("+ %s: %p\n", #name, plug->name);
         LIST_OF_CALLBACKS
 /*   */ #undef X
 
-        assert(plug->window);
-        // Crazy shit
         Window **w = dlsym(handle, "self_window");
-        if (w) *w = plug->window;
+        if (w) {
+                *w = plug->window;
+                printf("+ %s: %p\n", "window", plug->window);
+        }
         Plugin **p = dlsym(handle, "self_plugin");
-        if (p) *p = plug;
+        if (p) {
+                *p = plug;
+                printf("+ %s: %p\n", "self_plugin", plug);
+        }
 
-        assert(plug->window);
         // Init plugin corrutine
         mco_desc desc = mco_desc_init(coro_entry, 0);
         desc.user_data = plug;
         assert(mco_create((mco_coro **) &plug->co, &desc) == MCO_SUCCESS);
         assert(mco_status(plug->co) == MCO_SUSPENDED);
-        assert(plug->window);
         return plug;
 }
 

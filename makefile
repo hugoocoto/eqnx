@@ -7,6 +7,7 @@ VERSION = "\"$(MAJOR).$(MINOR).$(PATCH)-$(INFO)\""
 OUT = eqnx
 CC = gcc
 OBJ_DIR = obj
+PLUGINS_DIR = plugins
 WAYLAND_OUT_PATH = wayland-protocol
 
 WAYLAND_PROTOCOLS_DIR = $(shell pkg-config --variable=pkgdatadir wayland-protocols)
@@ -27,7 +28,7 @@ WAYLAND_SOURCES = $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \
 WAYLAND_OBJ = $(patsubst $(WAYLAND_OUT_PATH)/%.c,$(OBJ_DIR)/protocol/%.o,$(WAYLAND_SOURCES))
 
 # Plugins
-PLUGINS_SO = $(patsubst plugins/%.c,plugins/%.so,$(wildcard plugins/*.c))
+PLUGINS_SO = $(patsubst plugins_src/%.c,$(PLUGINS_DIR)/%.so,$(wildcard plugins_src/*.c))
 
 .PHONY: all compile install uninstall clean
 
@@ -62,7 +63,8 @@ $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h: $(XDG_DECOR_XML)
 	@mkdir -p $(WAYLAND_OUT_PATH)
 	wayland-scanner client-header $< $@
 
-plugins/%.so: plugins/%.c $(OBJ)
+plugins/%.so: plugins_src/%.c $(OBJ)
+	@ mkdir -p plugins
 	$(CC) $(FLAGS) $(INCLUDES) -shared $< -o $@
 
 install: /usr/local/man/man1/eqnx.1
@@ -77,7 +79,7 @@ uninstall:
 	rm -f /usr/local/bin/$(OUT)
 
 clean:
-	rm -rf $(WAYLAND_OUT_PATH) $(OBJ_DIR) $(OUT) plugins/*.so
+	rm -rf $(WAYLAND_OUT_PATH) $(OBJ_DIR) $(OUT) $(PLUGINS_DIR)
 
 -include $(OBJ:.o=.d)
 -include $(WAYLAND_OBJ:.o=.d)
