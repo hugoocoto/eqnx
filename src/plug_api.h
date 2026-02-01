@@ -1,4 +1,3 @@
-#ifndef PLUG_H_
 #define PLUG_H_ 1
 
 #include "draw.h"
@@ -41,8 +40,8 @@ void mainloop();
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
 extern void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
 extern void plug_send_mouse_event(Plugin *p, Pointer_Event);
-extern void ask_for_redraw();
 extern void plug_replace_img(Plugin *current, char *plugpath);
+extern void ask_for_redraw();
 
 // from wayland_client.h
 extern int fb_capture(char *filename);

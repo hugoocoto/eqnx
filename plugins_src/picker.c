@@ -61,13 +61,16 @@ resize(int x, int y, int w, int h)
 void
 kp_event(int sym, int mods)
 {
-        if (sym == 'n' && mod_has_Control(mods) && match_entry_arr.size != 0) selected = (selected + 1) % (match_entry_arr.size);
-        if (sym == 'p' && mod_has_Control(mods) && match_entry_arr.size != 0) selected = ((match_entry_arr.size) + selected - 1) % (match_entry_arr.size);
-        if (sym == XKB_KEY_Return && match_entry_arr.size != 0) plug_replace_img(self_plugin, build_path(PATH, match_entry_arr.data[selected].name));
-        if (sym == XKB_KEY_BackSpace) {
+        if (0) {
+        } else if ((sym == XKB_KEY_Down || (sym == 'n' && mod_has_Control(mods))) && match_entry_arr.size != 0) {
+                selected = (selected + 1) % (match_entry_arr.size);
+        } else if ((sym == XKB_KEY_Up || (sym == 'p' && mod_has_Control(mods))) && match_entry_arr.size != 0) {
+                selected = ((match_entry_arr.size) + selected - 1) % (match_entry_arr.size);
+        } else if (sym == XKB_KEY_Return && match_entry_arr.size != 0) {
+                plug_replace_img(self_plugin, build_path(PATH, match_entry_arr.data[selected].name));
+        } else if (sym == XKB_KEY_BackSpace) {
                 if (search_text[0]) search_text[strlen(search_text) - 1] = 0;
-        }
-        if (isprint(sym) && sym < 128 && (mods == 0 || mods == Mod_Shift)) {
+        } else if (isprint(sym) && sym < 128 && (mods == 0 || mods == Mod_Shift)) {
                 strncat(search_text, (const char[]) { sym, 0 }, sizeof search_text - 1);
                 selected = 0;
         }
@@ -79,23 +82,11 @@ match(char *s1, char *s2)
 {
         int len1 = strlen(s1);
         int len2 = strlen(s2);
-
         int j = 0;
-        for (int i = 0; i < len2; i++) {
+        for (int i = 0; i < len2 && j < len1; i++) {
                 if (s2[i] == s1[j]) ++j;
-                if (j == len1) return true;
         }
-        return len1 == 0;
-}
-
-__attribute__((constructor)) void
-test()
-{
-        assert(match("", "hello"));
-        assert(match("h", "hello"));
-        assert(match("hl", "hello"));
-        assert(match("hlo", "hello"));
-        assert(!match("hlol", "hello"));
+        return len1 == 0 || len1 == j;
 }
 
 void

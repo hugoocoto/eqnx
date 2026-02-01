@@ -8,7 +8,7 @@
 
 /* On parallelism: As the plugin system is single-thread by design, calling api
  * functions from other threads may derive in unexpected results. It's permitted
- * to use more than one thread, once just the main one do the api calls. For
+ * to use more than one thread, if just the main one do the api calls. For
  * example, another thread can modify globals asynchronously, and the render
  * function can use this globals to update the window. Updating the window from
  * another thread is considered unexpected behaviour.
@@ -63,6 +63,5 @@ main(int argc, char **argv)
         mainloop();
 
         /* Your deinitializations here */
-
         return 0;
 }
