@@ -343,24 +343,22 @@ draw_window(Window *win)
                 pixel_c = win->x * grid_width;
                 for (int c = 0; c < win->w; c++, pixel_c += grid_width) {
                         struct Char3 sc = window_get(win, c, r);
-                        if (sc.cp == 0) {
-                                continue;
-                        }
+                        if (sc.cp == 0) sc.cp = ' ';
                         draw_cp(f, pixel_c, pixel_r, sc);
                 }
         }
 }
 
 void
-draw_clear_window(Window *window)
+draw_clear_window(Window *window, uint32_t fg, uint32_t bg)
 {
-        window_setall(window, 0, 0xFF000000, 0xFF000000);
+        window_setall(window, 0, fg, bg);
 }
 
 void
-draw_clear_line(Window *window, int line)
+draw_clear_line(Window *window, int line, uint32_t fg, uint32_t bg)
 {
         for (int i = 0; i < window->w; i++) {
-                window_set(window, i, line, 0, 0xFF000000, 0xFF000000);
+                window_set(window, i, line, 0, fg, bg);
         }
 }
