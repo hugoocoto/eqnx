@@ -3,16 +3,8 @@
 #include <stdlib.h>
 
 #include "../src/plug_api.h"
+#include "theme.h"
 
-// Pure colors. uint32_t numbers
-#define BLACK 0xFF000000
-#define RED 0xFFFF0000
-#define GREEN 0xFF00FF00
-#define YELLOW 0xFFFFFF00
-#define BLUE 0xFF0000FF
-#define MAGENTA 0xFFFF00FF
-#define CYAN 0xFF00FFFF
-#define WHITE 0xFFFFFFFF
 
 /* On parallelism: As the plugin system is single-thread by design, calling api
  * functions from other threads may derive in unexpected results. It's permitted

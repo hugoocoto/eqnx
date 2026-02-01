@@ -3,15 +3,7 @@
 #include <stdlib.h>
 
 #include "../src/plug_api.h"
-
-#define BLACK 0xFF000000
-#define RED 0xFFFF0000
-#define GREEN 0xFF00FF00
-#define YELLOW 0xFFFFFF00
-#define BLUE 0xFF0000FF
-#define MAGENTA 0xFFFF00FF
-#define CYAN 0xFF00FFFF
-#define WHITE 0xFFFFFFFF
+#include "theme.h"
 
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;

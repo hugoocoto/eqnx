@@ -2,13 +2,7 @@
 #include <stdio.h>
 
 #include "../src/plug_api.h"
-
-#define GRAY 0xFF666666
-#define BLACK 0xFF000000
-#define RED 0xFFFF0000
-#define GREEN 0xFF00FF00
-#define BLUE 0xFF0000FF
-#define WHITE 0xFFFFFFFF
+#include "theme.h"
 
 Window *self_window;
 

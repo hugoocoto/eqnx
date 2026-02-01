@@ -17,7 +17,7 @@ uint32_t window_get_codepoint(Window *window, int x, int y);
 
 void window_set(Window *window, int x, int y, uint32_t c, uint32_t fg, uint32_t bg);
 void window_setall(Window *window, uint32_t c, uint32_t fg, uint32_t bg);
-void window_puts(Window *window, int x, int y, char *str, uint32_t fg, uint32_t bg);
+void window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str);
 void window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...);
 
 // Get a window representing part of window.

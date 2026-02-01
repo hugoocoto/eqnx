@@ -63,7 +63,7 @@ $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h: $(XDG_DECOR_XML)
 	@mkdir -p $(WAYLAND_OUT_PATH)
 	wayland-scanner client-header $< $@
 
-plugins/%.so: plugins_src/%.c $(OBJ)
+plugins/%.so: plugins_src/%.c $(OBJ) $(wildchar plugins_src/*.h)
 	@ mkdir -p plugins
 	$(CC) $(FLAGS) $(INCLUDES) -shared $< -o $@
 

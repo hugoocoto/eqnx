@@ -8,15 +8,7 @@
 
 #include "../src/plug_api.h"
 #include "da.h"
-
-#define BLACK 0xFF000000
-#define RED 0xFFFF0000
-#define GREEN 0xFF00FF00
-#define YELLOW 0xFFFFFF00
-#define BLUE 0xFF0000FF
-#define MAGENTA 0xFFFF00FF
-#define CYAN 0xFF00FFFF
-#define WHITE 0xFFFFFFFF
+#include "theme.h"
 
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;
@@ -74,17 +66,27 @@ void
 render()
 {
         if (rows == 0) return;
-        int page = selected / rows;
-        int max = (page + 1) * rows;
+        int page = selected / (rows - 1);
+        int max = (page + 1) * (rows - 1);
+        int width = 20;
         if (max > entry_arr.size - 1) max = entry_arr.size - 1;
 
-        draw_clear_window(self_window);
-        for (int i = page * rows; i < max; i++) {
+        fb_clear(BACKGROUND);
+        window_printf(self_window, 0, 0, YELLOW, BACKGROUND,
+                      "Plugin picker [%d/%d]", selected + 1, entry_arr.size - 1);
+        for (int i = page * (rows - 1); i < max; i++) {
                 if (i == selected) {
-                        window_puts(self_window, 0, i - page * rows, entry_arr.data[i].name, BLACK, WHITE);
+                        window_printf(self_window, 0, i - page * (rows - 1) + 1, BACKGROUND, FOREGROUND,
+                                      "  %-*.*s",
+                                      width, width,
+                                      entry_arr.data[i].name);
+
                         continue;
                 }
-                window_puts(self_window, 0, i - page * rows, entry_arr.data[i].name, WHITE, BLACK);
+                window_printf(self_window, 0, i - page * (rows - 1) + 1, FOREGROUND, BACKGROUND,
+                              "  %-*.*s",
+                              width, width,
+                              entry_arr.data[i].name);
         }
 }
 

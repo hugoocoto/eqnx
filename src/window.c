@@ -54,7 +54,7 @@ window_resize(Window *window, int x, int y, int w, int h)
 // }
 
 void
-window_puts(Window *window, int x, int y, char *str, uint32_t fg, uint32_t bg)
+window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str)
 {
         if (!str) return;
         if (y < 0) return;
@@ -77,7 +77,7 @@ window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt,
         va_start(ap, fmt);
         vsnprintf(buf, sizeof buf - 1, fmt, ap);
         va_end(ap);
-        window_puts(window, x, y, buf, fg, bg);
+        window_puts(window, x, y, fg, bg, buf);
 }
 
 struct Char3
