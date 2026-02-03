@@ -128,6 +128,8 @@ plug_replace_img(Plugin *current, char *plugpath)
 
         // Remplace symbols and name
         plug_open(plugpath, current, current->window);
+        da_append(&current->args, plugpath);
+        da_append(&current->args, NULL);
 
         send_resize_event();
         // Run main

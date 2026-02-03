@@ -47,7 +47,7 @@ render()
 int
 main(int argc, char **argv)
 {
-        printf("Plugin Arguments: ----------------\n");
+        printf("Plugin Arguments [%d]: ------------\n", argc);
         for (int i = 0; i < argc; i++) {
                 printf("%d: %s\n", i, argv[i]);
         }

@@ -20,7 +20,7 @@ INCLUDES = -I. -Isrc -I$(WAYLAND_OUT_PATH) -Ithirdparty
 
 SRC = $(wildcard src/*.c)
 OBJ = $(patsubst src/%.c,$(OBJ_DIR)/src/%.o,$(SRC))
-HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h $(DEPS)
+HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h $(DEPS) config.h
 DEPS = thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h thirdparty/stb_c_lexer.h
 
 # Protocolos Wayland (Se compilan como objetos separados para el binario final)

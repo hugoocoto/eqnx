@@ -163,6 +163,10 @@ init_loop(char *ppath)
                 return 1;
         }
 
+        for (int i = 0; i < argc; i++) {
+                da_append(&p->args, argv[i]);
+        }
+
         add_keypress_listener(keypress_listener);
         add_resize_listener(resize_listener);
         add_pointer_listener(pointer_listener);
