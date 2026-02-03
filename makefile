@@ -69,7 +69,7 @@ plugins/%.so: plugins_src/%.c $(OBJ) $(wildchar plugins_src/*.h)
 	$(CC) $(FLAGS) $(INCLUDES) -shared $< -o $@
 
 install: /usr/local/man/man1/eqnx.1
-	install -m 0755 $(OUT) /usr/local/bin/
+	# install -m 0755 $(OUT) /usr/local/bin/
 
 /usr/local/man/man1/eqnx.1: eqnx.1
 	sudo install -g 0 -o 0 -m 0644 $< /usr/local/man/man1/

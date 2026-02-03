@@ -30,10 +30,6 @@
 // like assert but returns x
 #define inline_assert(x) ({__auto_type _x = x; assert(_x); _x; })
 
-/* This plugin is the entry point of the program, it's the first and unique
- * plugin called from here */
-#define INIT_PLUGIN "./esx/example.esx"
-
 static Plugin *p;
 static Window *window;
 static bool need_redraw = true;
@@ -198,9 +194,10 @@ int
 main(int argc, char **argv)
 {
         char *v, *ppath;
-        flag_program(.help = "Eqnx by Hugo Coto");
+        flag_program(.help = "eqnx by Hugo Coto");
         flag_add(&v, "--version", "-v", .help = "show version");
-        flag_add(&ppath, "--plugin", "-p", .help = "init plugin", .defaults = INIT_PLUGIN, .nargs = 1);
+        flag_add(&ppath, "--program", "-p", .help = "ESX program to be loaded",
+                 .nargs = 1, .required = 1);
 
         if (flag_parse(&argc, &argv)) {
                 flag_show_help(STDOUT_FILENO);
