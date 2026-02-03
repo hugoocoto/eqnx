@@ -31,9 +31,6 @@ render()
 int
 main(int argc, char **argv)
 {
-        for (int i = 0; i < argc; i++) {
-                printf("[%d] %s\n", argc, argv[i]);
-        }
         mainloop();
         return 0;
 }

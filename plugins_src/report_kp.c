@@ -35,7 +35,7 @@ pointer_event(Pointer_Event e)
 void
 render()
 {
-        draw_clear_window(self_window, BACKGROUND, BACKGROUND);
+        window_clear(self_window, BACKGROUND, BACKGROUND);
         window_set(self_window, 0, 0, last_sym, WHITE, RED);
         printf("sym: %d\n", last_sym);
 }

@@ -68,47 +68,47 @@ mouse_event(Pointer_Event e)
         uint32_t fg = WHITE;
         switch (e.type) {
         case Pointer_Move:
-                draw_clear_line(self_window, 0, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 0, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 0, fg, bg,
                               "Pointer moves to: %d, %d (%d, %d)\n",
                               e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Enter:
-                draw_clear_line(self_window, 4, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 4, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 4, fg, bg,
                               "Pointer enter focus\n");
                 break;
         case Pointer_Leave:
-                draw_clear_line(self_window, 4, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 4, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 4, fg, bg,
                               "Pointer leaves focus\n");
                 break;
         case Pointer_Scroll:
-                draw_clear_line(self_window, 3, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 3, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 3, fg, bg,
                               "Pointer scrolls %d (on %d, %d (%d, %d))\n",
                               e.scroll, e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Scroll_Relative:
-                draw_clear_line(self_window, 3, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 3, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 3, fg, bg,
                               "Pointer scrolls relative axis=%d direction=%d (on %d, %d (%d, %d))\n",
                               e.axis, e.direction, e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Press:
-                draw_clear_line(self_window, 1, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 1, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 1, fg, bg,
                               "Pointer press %s (on %d, %d (%d, %d))\n",
                               btn_repr(e.btn), e.x, e.y, e.px, e.py);
                 break;
         case Pointer_Release:
-                draw_clear_line(self_window, 1, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 1, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 1, fg, bg,
                               "Pointer release %s (on %d, %d (%d, %d))\n",
                               btn_repr(e.btn), e.x, e.y, e.px, e.py);
                 break;
         default:
-                draw_clear_line(self_window, 1, BACKGROUND, BACKGROUND);
+                window_clear_line(self_window, 1, BACKGROUND, BACKGROUND);
                 window_printf(self_window, 0, 1, fg, bg,
                               "Unhandled mouse event %d\n", e.type);
                 return;

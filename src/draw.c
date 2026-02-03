@@ -350,13 +350,13 @@ draw_window(Window *win)
 }
 
 void
-draw_clear_window(Window *window, uint32_t fg, uint32_t bg)
+window_clear(Window *window, uint32_t fg, uint32_t bg)
 {
         window_setall(window, 0, fg, bg);
 }
 
 void
-draw_clear_line(Window *window, int line, uint32_t fg, uint32_t bg)
+window_clear_line(Window *window, int line, uint32_t fg, uint32_t bg)
 {
         for (int i = 0; i < window->w; i++) {
                 window_set(window, i, line, 0, fg, bg);

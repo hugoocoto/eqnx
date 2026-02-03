@@ -7,7 +7,6 @@
 #include <unistd.h>
 
 #include "da.h"
-#include "plug_api.h"
 #include "plug_co.h"
 
 #define MINICORO_IMPL
@@ -15,17 +14,6 @@
 
 #define EXPORTED // mark functions as part of the api
 #define UNUSED(x) ((void) (x))
-
-int plugin_default_main(int argc, char **argv);
-
-static bool
-strendswith(const char *str, const char *suf)
-{
-        if (!suf) return true;
-        size_t suflen = strlen(suf);
-        size_t len = strlen(str);
-        return !strcmp(str + len - suflen, suf);
-}
 
 int
 resolve_try_name_inplace(const char *prefix, char **name, const char *sufix)
@@ -114,8 +102,6 @@ typedef struct PlugUpwardsCall {
         enum {
                 MAINLOOP = 0xABC123, // avoid using other arguments as calls
                 RUN,
-                WINDOW_REQUEST,
-                PLUG_INFO_REQUEST, // UGLY
         } type;
 } PlugUpwardsCall;
 
@@ -176,32 +162,6 @@ plug_run(char *plugpath, Window *w, int argc, char **argv)
         return plug;
 }
 
-EXPORTED OBSOLETE Plugin * // UGLY
-request_plug_info()
-{
-        Plugin *p;
-        PlugUpwardsCall call = (PlugUpwardsCall) {
-                .type = PLUG_INFO_REQUEST,
-        };
-        assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
-        assert(mco_yield(mco_running()) == MCO_SUCCESS);
-        assert(mco_pop(mco_running(), &p, sizeof(Plugin *)) == MCO_SUCCESS);
-        return p;
-}
-
-EXPORTED OBSOLETE Window *
-request_window()
-{
-        Window *win;
-        PlugUpwardsCall call = (PlugUpwardsCall) {
-                .type = WINDOW_REQUEST,
-        };
-        assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
-        assert(mco_yield(mco_running()) == MCO_SUCCESS);
-        assert(mco_pop(mco_running(), &win, sizeof(Window *)) == MCO_SUCCESS);
-        return win;
-}
-
 EXPORTED void
 mainloop()
 {
@@ -210,6 +170,15 @@ mainloop()
         };
         assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
         assert(mco_yield(mco_running()) == MCO_SUCCESS);
+}
+
+int
+plugin_default_main(int argc, char **argv)
+{
+        UNUSED(argc);
+        UNUSED(argv);
+        printf("Plugin has no main! Using default one.\n");
+        return 0;
 }
 
 // Coroutine entry function (trampoline to main).
@@ -221,15 +190,6 @@ coro_entry(mco_coro *co)
         int status = plug->main(plug->args.count - 1, plug->args.data);
         // main returns here
         UNUSED(status);
-}
-
-int
-plugin_default_main(int argc, char **argv)
-{
-        UNUSED(argc);
-        UNUSED(argv);
-        printf("Plugin has no main! Using default one.\n");
-        return 0;
 }
 
 void
@@ -313,10 +273,16 @@ plug_open(char *plugdir, Plugin *plug_info, Window *window)
 }
 
 void
-plug_send_mouse_event(Plugin *p, Pointer_Event e)
+plug_render(Plugin *p)
+{
+        if (p->render) p->render();
+}
+
+void
+plug_send_pointer_event(Plugin *p, Pointer_Event e)
 {
         if (!p) return;
-        if (p->mouse_event) p->mouse_event(e);
+        if (p->pointer_event) p->pointer_event(e);
 }
 
 void
@@ -370,16 +336,6 @@ mco_suspended_handler(Plugin *p)
                 da_append(&plug->args, NULL);
                 if (!plug_exec(plug)) plug_add_child(p, plug);
                 assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
-                assert(mco_resume(p->co) == MCO_SUCCESS);
-        } break;
-
-        case WINDOW_REQUEST: {
-                assert(mco_push(p->co, &p->window, sizeof(Window *)) == MCO_SUCCESS);
-                assert(mco_resume(p->co) == MCO_SUCCESS);
-        } break;
-
-        case PLUG_INFO_REQUEST: { // UGLY
-                assert(mco_push(p->co, &p, sizeof(Plugin *)) == MCO_SUCCESS);
                 assert(mco_resume(p->co) == MCO_SUCCESS);
         } break;
 

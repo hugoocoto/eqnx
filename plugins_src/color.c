@@ -25,7 +25,7 @@ main(int argc, char **argv)
 {
         if (argc == 2) {
                 int c = atoi(argv[1]);
-                color = c >= 0 && c < COLORS_LEN ? COLORS[c] : color;
+                color = c >= 0 && c < (int) COLORS_LEN ? COLORS[c] : color;
         }
         printf("Color color: %s -> %x\n", argv[1], color);
         mainloop();

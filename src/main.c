@@ -6,11 +6,11 @@
 #include <time.h>
 
 #include "da.h"
+#include "draw.h"
 #include "esx.h"
 #include "event.h"
 #include "flag.h"
 #include "keypress.h"
-#include "plug_api.h"
 #include "plug_co.h"
 #include "wayland_client.h"
 #include "window.h"
@@ -72,7 +72,7 @@ resize_listener(int x, int y, int w, int h)
 static void
 pointer_listener(Pointer_Event e)
 {
-        plug_send_mouse_event(p, e);
+        plug_send_pointer_event(p, e);
 }
 
 void
@@ -161,12 +161,6 @@ init_loop(char *ppath)
         if ((p = plug_open(argv[0], NULL, window)) == NULL) {
                 printf("plugin name can not be resolved\n");
                 return 1;
-        }
-
-        // Add args to plugin info
-        for (int i = 0; i < argc; i++) {
-                printf("Adding arg %d: %s\n", i, argv[i]);
-                da_append(&p->args, argv[i]);
         }
 
         add_keypress_listener(keypress_listener);

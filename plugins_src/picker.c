@@ -118,7 +118,7 @@ render()
         if (max > match_entry_arr.size) max = match_entry_arr.size;
 
 
-        draw_clear_window(self_window, BACKGROUND, BACKGROUND);
+        window_clear(self_window, BACKGROUND, BACKGROUND);
         window_printf(self_window, 0, 0, YELLOW, BACKGROUND,
                       "Plugin picker [%d/%d]", selected + 1, match_entry_arr.size);
 

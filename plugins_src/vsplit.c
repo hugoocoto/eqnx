@@ -33,15 +33,15 @@ kp_event(int sym, int mods)
 void
 pointer_event(Pointer_Event e)
 {
-        plug_send_mouse_event(plug_left, e);
-        plug_send_mouse_event(plug_right, e);
+        plug_send_pointer_event(plug_left, e);
+        plug_send_pointer_event(plug_right, e);
 }
 
 void
 render()
 {
-        plug_left->render();
-        plug_right->render();
+        plug_render(plug_left);
+        plug_render(plug_right);
 }
 
 int
