@@ -14,13 +14,14 @@ WAYLAND_PROTOCOLS_DIR = $(shell pkg-config --variable=pkgdatadir wayland-protoco
 XDG_SHELL_XML = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
 XDG_DECOR_XML = $(WAYLAND_PROTOCOLS_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
 
-FLAGS = -Wall -Wextra -Wno-unused-parameter -ggdb -rdynamic -fPIC 
+FLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-override-init -ggdb -rdynamic -fPIC 
 LIBS = -lwayland-client -lwayland-cursor -lxkbcommon -lm -lfontconfig -ldl
 INCLUDES = -I. -Isrc -I$(WAYLAND_OUT_PATH) -Ithirdparty
 
 SRC = $(wildcard src/*.c)
 OBJ = $(patsubst src/%.c,$(OBJ_DIR)/src/%.o,$(SRC))
-HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h
+HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h $(DEPS)
+DEPS = thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h thirdparty/stb_c_lexer.h
 
 # Protocolos Wayland (Se compilan como objetos separados para el binario final)
 WAYLAND_SOURCES = $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \
@@ -95,3 +96,10 @@ thirdparty/stb_image_write.h:
 thirdparty/stb_truetype.h:
 	@mkdir -p thirdparty
 	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_truetype.h -O $@
+
+thirdparty/stb_c_lexer.h:
+	@mkdir -p thirdparty
+	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_c_lexer.h -O $@
+
+debug: compile
+	gdb $(OUT) -ex "r" 

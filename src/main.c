@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "da.h"
+#include "esx.h"
 #include "event.h"
 #include "flag.h"
 #include "keypress.h"
@@ -30,7 +32,7 @@
 
 /* This plugin is the entry point of the program, it's the first and unique
  * plugin called from here */
-#define INIT_PLUGIN "./plugins/picker.so"
+#define INIT_PLUGIN "./esx/example.esx"
 
 static Plugin *p;
 static Window *window;
@@ -84,20 +86,20 @@ send_resize_event()
         } while (0);
 }
 
-static void
-print_fps()
-{
-        static time_t last_t = -1;
-        static float fps = 0;
-        time_t t;
-        time(&t);
-        fps++;
-        if (last_t != t) {
-                printf("FPS: %f\n", fps / (t - last_t));
-                last_t = t;
-                fps = 0;
-        }
-}
+// static void
+// print_fps()
+// {
+//         static time_t last_t = -1;
+//         static float fps = 0;
+//         time_t t;
+//         time(&t);
+//         fps++;
+//         if (last_t != t) {
+//                 printf("FPS: %f\n", fps / (t - last_t));
+//                 last_t = t;
+//                 fps = 0;
+//         }
+// }
 
 void
 plug_safe_restart()
@@ -105,26 +107,78 @@ plug_safe_restart()
         longjmp(safe_jmp_env, 1);
 }
 
+// __attribute__((constructor)) static void
+// test()
+// {
+//         Esx_Program prog = { 0 };
+//         int argc;
+//         char **argv;
+//
+//         char str[] = "(vsplit(color_red)(color_blue))";
+//         if (esx_parse_string(str, strlen(str), &prog)) {
+//                 printf("Can not load esx str %s\n", str);
+//                 return;
+//         }
+//
+//         esx_print_program(prog);
+//
+//         if (esx_to_args(prog, &argc, &argv)) {
+//                 printf("Error while parsing arguments from esx file %s\n", str);
+//                 return;
+//         }
+//
+//         for (int i = 0; i < argc; i++) {
+//                 printf("%d: %s\n", i, argv[i]);
+//         }
+//         return;
+// }
+
+
 static int
 init_loop(char *ppath)
 {
-        if (setjmp(safe_jmp_env)) {
-                goto loop;
+        Esx_Program prog = { 0 };
+        int argc;
+        char **argv;
+
+        if (esx_parse_file(ppath, &prog)) {
+                printf("Can not load esx file %s\n", ppath);
+                exit(1);
+        }
+
+        if (esx_to_args(prog, &argc, &argv)) {
+                printf("Error while parsing arguments from esx file %s\n", ppath);
+                exit(1);
+        }
+
+        for (int i = 0; i < argc; i++) {
+                printf("%d: %s\n", i, argv[i]);
         }
 
         window = create_fullscreen_window();
         assert(window);
-        p = plug_open(ppath, NULL, window);
-        assert(p);
+
+        if ((p = plug_open(argv[0], NULL, window)) == NULL) {
+                printf("plugin name can not be resolved\n");
+                return 1;
+        }
+
+        // Add args to plugin info
+        for (int i = 0; i < argc; i++) {
+                printf("Adding arg %d: %s\n", i, argv[i]);
+                da_append(&p->args, argv[i]);
+        }
 
         add_keypress_listener(keypress_listener);
         add_resize_listener(resize_listener);
         add_pointer_listener(pointer_listener);
 
+        if (setjmp(safe_jmp_env)) {
+                goto loop;
+        }
+
         send_resize_event();
-
         if (plug_exec(p)) return 1;
-
         send_resize_event();
 
 loop:
@@ -132,13 +186,11 @@ loop:
                 if (wayland_dispatch_events()) {
                         break;
                 }
-
                 if (need_redraw) {
                         render_frame();
                 }
                 // print_fps();
         }
-
         plug_release(p);
         plug_destroy(p);
         return 0;

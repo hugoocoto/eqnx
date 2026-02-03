@@ -1,6 +1,8 @@
+#ifndef PLUG_H_
 #define PLUG_H_ 1
 
 #include "draw.h"
+#include "esx.h"
 #include "event.h"
 #include "window.h"
 
@@ -28,8 +30,10 @@ typedef struct Plugin Plugin;
 
 /* Create a child plugin and execute it. This function returns once mainloop is
  * called by the child. It returns either the plugin structure or NULL, if
- * something went wrong. */
-Plugin *plug_run(char *plugpath, Window *);
+ * something went wrong. Argv is the array of startup values, argv[0] should be
+ * equal to plugpath, and last value of argv have to be NULL. Argc is the number
+ * of values in argv, also counting the null terminator.*/
+Plugin *plug_run(char *plugpath, Window *, int argc, char **argv);
 
 /* Enter plugin "mainloop". It's not a loop, but acts like one. This function
  * returns when the program has to end. Once this function is called, the plugin
@@ -62,10 +66,15 @@ typedef struct Plugin {
         void *co;
         LIST_OF_CALLBACKS;
         struct {
-                struct Plugin **data;
                 int capacity;
                 int count;
+                struct Plugin **data;
         } children;
+        struct {
+                int capacity;
+                int count;
+                char **data;
+        } args;
 } Plugin;
 #undef X
 

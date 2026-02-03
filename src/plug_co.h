@@ -6,7 +6,7 @@
 
 void plug_destroy(Plugin *p);
 void plug_release(Plugin *p);
-Plugin *plug_open(const char *plugdir, Plugin *plug_info, Window *window);
+Plugin *plug_open(char *plugdir, Plugin *plug_info, Window *window);
 void plug_add_child(Plugin *parent, Plugin *child);
 int plug_exec(Plugin *p);
 void plug_send_kp_event(Plugin *p, int sym, int mods);

@@ -1,7 +1,10 @@
 (vsplit
     (vsplit
-        (color_red)
-        (color_blue)
+      (color 1) 
+      (color 2) 
     )
-    (picker)
+    (vsplit
+      (color 3) 
+      (color 4) 
+    )
 )

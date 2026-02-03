@@ -124,6 +124,23 @@ window_create(int x, int y, int h, int w)
 }
 
 void
+window_coords_to_px(int x, int y, int *px, int *py)
+{
+        Font *f = get_default_font();
+        assert(f != NULL);
+
+        int grid_height = f->l_h;
+        int ax, lsb;
+        stbtt_GetCodepointHMetrics(&f->info, 'A', &ax, &lsb);
+        int grid_width = roundf(ax * f->scale);
+
+        assert(grid_height > 0 && grid_width > 0);
+
+        if (y) *py = y * grid_height;
+        if (x) *px = x * grid_width;
+}
+
+void
 window_px_to_coords(int px, int py, int *x, int *y)
 {
         Font *f = get_default_font();
@@ -179,10 +196,10 @@ window_cut(Window *window, int x, int y, int w, int h)
 
         child->parent = window;
         assert(child->shared->gap == child->parent->shared->gap);
-        assert(x <= child->w && x >= child->x);
-        assert(y <= child->h && y >= child->y);
-        assert(x + w <= child->w);
-        assert(y + h <= child->h);
+        assert(x >= window->x);
+        assert(x - window->x + w <= window->w);
+        assert(y >= window->y);
+        assert(y - window->y + h <= window->h);
 
         child->x = x;
         child->y = y;

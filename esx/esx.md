@@ -1,4 +1,4 @@
-# eqnx s-expressions
+# Eqnx S-eXpressions
 
 Language designed to estructure the app given plugins and their arguments.
 

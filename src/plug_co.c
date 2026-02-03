@@ -1,10 +1,12 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "da.h"
 #include "plug_api.h"
 #include "plug_co.h"
 
@@ -16,21 +18,71 @@
 
 int plugin_default_main(int argc, char **argv);
 
+static bool
+strendswith(const char *str, const char *suf)
+{
+        if (!suf) return true;
+        size_t suflen = strlen(suf);
+        size_t len = strlen(str);
+        return !strcmp(str + len - suflen, suf);
+}
+
+int
+resolve_try_name_inplace(const char *prefix, char **name, const char *sufix)
+{
+        int fdin;
+        assert(prefix && name && *name && sufix);
+        char *new_name = calloc(1, strlen(*name) + strlen(prefix) + strlen(sufix) + 1);
+        strcat(new_name, prefix);
+        strcat(new_name, *name);
+        strcat(new_name, sufix);
+        printf("Trying to open `%s`: ", new_name);
+        if ((fdin = open(new_name, O_RDONLY)) >= 0) {
+                free(*name);
+                *name = new_name;
+                printf("Ok\n");
+                return fdin;
+        }
+        free(new_name);
+        printf("Fail\n");
+        return -1;
+}
+
+int
+resolve_real_name_inplace(char **name)
+{
+        int fdin;
+        assert(name && *name);
+        return (fdin = resolve_try_name_inplace("", name, "")) >= 0              ? fdin :
+               (fdin = resolve_try_name_inplace("./plugins/", name, "")) >= 0    ? fdin :
+               (fdin = resolve_try_name_inplace("", name, ".so")) >= 0           ? fdin :
+               (fdin = resolve_try_name_inplace("./plugins/", name, ".so")) >= 0 ? fdin :
+                                                                                   -1;
+}
+
 // copy plugin.so into a temp file and return the (strdup) name of the new file.
 static char *
-plugin_tmp_cpy(const char *path)
+plugin_tmp_cpy(const char *path, char **effective_path)
 {
         char template[] = "/tmp/eqnx_plugin_XXXXXX.so";
         ssize_t size = sysconf(_SC_PAGESIZE);
         assert(size != -1);
         char *buffer = alloca(size);
+        assert(buffer);
         ssize_t n;
         ssize_t o;
 
-        int fdout = mkstemps(template, 3);
-        int fdin = open(path, O_RDONLY);
+        int fdout = mkstemps(template, strlen(".so"));
         assert(fdout >= 0);
-        assert(fdin >= 0);
+
+        *effective_path = strdup(path);
+        int fdin = resolve_real_name_inplace(effective_path);
+
+        if (fdin < 0) {
+                unlink(template);
+                close(fdout);
+                return NULL;
+        }
 
         for (;;) {
                 n = read(fdin, buffer, size);
@@ -39,7 +91,7 @@ plugin_tmp_cpy(const char *path)
                 o = write(fdout, buffer, n);
                 assert(n == o);
         }
-        printf("Copied %s to %s\n", path, template);
+        printf("Copied %s to %s\n", *effective_path, template);
         return strdup(template);
 }
 
@@ -51,6 +103,7 @@ plugin_new()
                       &(Plugin) {
                       // default values
                       .window = NULL,
+                      .args = { 0 },
                       LIST_OF_CALLBACKS },
                       sizeof(Plugin));
 /*   */ #undef X
@@ -103,18 +156,23 @@ plug_replace_img(Plugin *current, char *plugpath)
 }
 
 EXPORTED Plugin *
-plug_run(char *plugpath, Window *w)
+plug_run(char *plugpath, Window *w, int argc, char **argv)
 {
         Plugin *plug;
         PlugUpwardsCall call = (PlugUpwardsCall) {
                 .type = RUN,
-                .arg = plugpath,
+                .arg = argv,
         };
+        printf("Plug Run (%s) with args:\n", plugpath);
+        for (int i = 0; i < argc; i++) {
+                printf("%d: %s\n", i, argv[i]);
+        }
 
         assert(mco_push(mco_running(), &w, sizeof(Window *)) == MCO_SUCCESS);
         assert(mco_push(mco_running(), &call, sizeof call) == MCO_SUCCESS);
         assert(mco_yield(mco_running()) == MCO_SUCCESS);
         assert(mco_pop(mco_running(), &plug, sizeof(Plugin *)) == MCO_SUCCESS);
+
         return plug;
 }
 
@@ -160,7 +218,7 @@ coro_entry(mco_coro *co)
 {
         Plugin *plug = mco_get_user_data(co);
         if (!plug->main) plug->main = plugin_default_main;
-        int status = plug->main(1, (char *[]) { plug->name });
+        int status = plug->main(plug->args.count - 1, plug->args.data);
         // main returns here
         UNUSED(status);
 }
@@ -195,23 +253,32 @@ plug_release(Plugin *p)
 }
 
 Plugin *
-plug_open(const char *plugdir, Plugin *plug_info, Window *window)
+plug_open(char *plugdir, Plugin *plug_info, Window *window)
 {
         assert(window);
         Plugin *plug = plug_info ?: plugin_new();
 
-        char *copy = plugin_tmp_cpy(plugdir);
+        plug->args.count = 0;
+
+        char *effective_path;
+        char *copy = plugin_tmp_cpy(plugdir, &effective_path);
+        if (!copy) {
+                fprintf(stderr, "Error: can not open file %s\n", plug->args.data[0]);
+                plug_destroy(plug);
+                return NULL;
+        }
+
         void *handle = dlopen(copy, RTLD_NOW);
-        printf("dlopen %s (%s) succeed -> handle %p\n", plugdir, copy, handle);
+        printf("%s: dlopen %s (%s) succeed -> handle %p\n", plugdir, effective_path, copy, handle);
         free(copy);
 
         if (!handle) {
                 fprintf(stderr, "Error: dlopen: %s\n", dlerror());
                 plug_destroy(plug);
-                return 0;
+                return NULL;
         }
 
-        char *s = strdup(plugdir);
+        char *s = strdup(effective_path);
         strncpy(plug->name, basename(s), sizeof plug->name - 1);
         free(s);
 
@@ -297,7 +364,10 @@ mco_suspended_handler(Plugin *p)
         case RUN: {
                 Window *win;
                 assert(mco_pop(p->co, &win, sizeof(Window *)) == MCO_SUCCESS);
-                Plugin *plug = plug_open(call.arg, NULL, win);
+                Plugin *plug = plug_open(((char **) call.arg)[0], NULL, win);
+                for (char **c = call.arg; *c; ++c)
+                        da_append(&plug->args, *c);
+                da_append(&plug->args, NULL);
                 if (!plug_exec(plug)) plug_add_child(p, plug);
                 assert(mco_push(p->co, &plug, sizeof(Plugin *)) == MCO_SUCCESS);
                 assert(mco_resume(p->co) == MCO_SUCCESS);
