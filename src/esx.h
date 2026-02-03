@@ -26,10 +26,10 @@ typedef struct Esx_Token {
         } type;
         struct Esx_Token *next;
         union {
-                char *s; // string
-                int c;   // char
-                int i;   // int
-                float f; // float
+                char *s;         // string
+                int c;           // char
+                unsigned long i; // int
+                float f;         // float
                 Esx_Program *expr;
         } as;
 } Esx_Token;

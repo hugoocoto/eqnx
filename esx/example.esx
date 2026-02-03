@@ -1,10 +1,10 @@
 (vsplit
     (vsplit
-      (color 1) 
-      (color 2) 
+      (color 0xFFFF0000) 
+      (color 0xFF00FF00) 
     )
     (vsplit
-      (color 3) 
+      (color 2) 
       (color 4) 
     )
 )

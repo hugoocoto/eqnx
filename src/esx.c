@@ -174,7 +174,7 @@ value_repr(Esx_Token tok, char *buf, int size)
         switch (tok.type) {
         case Esx_Atom: snprintf(buf, size, "%s", tok.as.s); break;
         case Esx_String: snprintf(buf, size, "\"%s\"", tok.as.s); break;
-        case Esx_Intlit: snprintf(buf, size, "%d", tok.as.i); break;
+        case Esx_Intlit: snprintf(buf, size, "%lu", tok.as.i); break;
         case Esx_FloatLit: snprintf(buf, size, "%f", tok.as.f); break;
         case Esx_CharLit: snprintf(buf, size, "'%c'", tok.as.c); break;
         default: {

@@ -24,10 +24,10 @@ int
 main(int argc, char **argv)
 {
         if (argc == 2) {
-                int c = atoi(argv[1]);
-                color = c >= 0 && c < (int) COLORS_LEN ? COLORS[c] : color;
+                uint32_t c = strtoull(argv[1], NULL, 10);
+                color = c < (int) COLORS_LEN ? COLORS[c] : c;
         }
-        printf("Color color: %s -> %x\n", argv[1], color);
+        printf("Color color: %s -> 0x%X\n", argv[1], color);
         mainloop();
         return 0;
 }
