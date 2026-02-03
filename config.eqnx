@@ -1,9 +1,0 @@
-; plugin builder receipe
-
-(vsplit
-    (vsplit
-        (color_red)
-        (color_blue)
-    )
-    (picker)
-)
