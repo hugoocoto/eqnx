@@ -53,7 +53,7 @@ static struct wl_cursor *default_cursor = NULL;
 
 /* Estado */
 static int32_t current_output_scale = 1;
-static bool should_quit = false;
+static bool should_close = false;
 static int pending_height = 0;
 static int pending_width = 0;
 static double pointer_x = .0;
@@ -76,6 +76,42 @@ struct Framebuffer {
         int stride;
         int current_idx;
 } screen_fb;
+
+void
+wayland_cancel_read()
+{
+        wl_display_cancel_read(display);
+}
+
+int
+wayland_prepare_read()
+{
+        return wl_display_prepare_read(display);
+}
+
+int
+wayland_dispatch_pending()
+{
+        return wl_display_dispatch_pending(display);
+}
+
+int
+wayland_flush()
+{
+        return wl_display_flush(display);
+}
+
+int
+wayland_read_events()
+{
+        return wl_display_read_events(display);
+}
+
+int
+wayland_get_fd()
+{
+        return wl_display_get_fd(display);
+}
 
 static int
 create_shm_file(off_t size)
@@ -519,7 +555,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *t, int32_t w, int32_t h,
 static void
 xdg_toplevel_close(void *d, struct xdg_toplevel *t)
 {
-        should_quit = true;
+        should_close = true;
 }
 static void
 xdg_toplevel_configure_bounds(void *d, struct xdg_toplevel *t, int32_t w, int32_t h)
@@ -630,7 +666,7 @@ wayland_set_title(char *title)
 void
 wayland_present(void)
 {
-        if (should_quit || !surface || !configured) return;
+        if (should_close || !surface || !configured) return;
 
         struct wl_buffer *buffer = fb_get_ready_buffer();
         if (!buffer) return;
@@ -708,10 +744,16 @@ wayland_init(void)
 }
 
 int
+wayland_should_close()
+{
+        return should_close;
+}
+
+int
 wayland_dispatch_events(void)
 {
         if (wl_display_dispatch(display) < 0) return 1;
-        if (should_quit) return 1;
+        if (should_close) return 1;
         return 0;
 }
 

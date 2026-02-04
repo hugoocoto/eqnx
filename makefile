@@ -102,4 +102,4 @@ thirdparty/stb_c_lexer.h:
 	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_c_lexer.h -O $@
 
 debug: compile
-	gdb $(OUT) -ex "r" 
+	gdb $(OUT) -ex "r -p ./esx/example.esx" 

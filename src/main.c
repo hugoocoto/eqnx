@@ -1,9 +1,10 @@
 #include <assert.h>
+#include <errno.h>
+#include <poll.h>
 #include <pthread.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
 #include "da.h"
 #include "draw.h"
@@ -34,6 +35,18 @@ static Plugin *p;
 static Window *window;
 static bool need_redraw = true;
 static jmp_buf safe_jmp_env;
+
+struct {
+        int capacity;
+        int count;
+        struct pollfd *data;
+} fds;
+
+void
+listen_to_fd(int fd)
+{
+        da_append(&fds, (struct pollfd) { .fd = fd });
+}
 
 void
 render_frame()
@@ -82,20 +95,20 @@ send_resize_event()
         } while (0);
 }
 
-// static void
-// print_fps()
-// {
-//         static time_t last_t = -1;
-//         static float fps = 0;
-//         time_t t;
-//         time(&t);
-//         fps++;
-//         if (last_t != t) {
-//                 printf("FPS: %f\n", fps / (t - last_t));
-//                 last_t = t;
-//                 fps = 0;
-//         }
-// }
+static void
+print_fps()
+{
+        static time_t last_t = -1;
+        static float fps = 0;
+        time_t t;
+        time(&t);
+        fps++;
+        if (last_t != t) {
+                printf("FPS: %f\n", fps / (t - last_t));
+                last_t = t;
+                fps = 0;
+        }
+}
 
 void
 plug_safe_restart()
@@ -155,7 +168,7 @@ init_loop(char *ppath)
         assert(window);
 
         if ((p = plug_open(argv[0], NULL, window)) == NULL) {
-                printf("plugin name can not be resolved\n");
+                printf("Plugin name can not be resolved\n");
                 return 1;
         }
 
@@ -167,6 +180,8 @@ init_loop(char *ppath)
         add_resize_listener(resize_listener);
         add_pointer_listener(pointer_listener);
 
+        da_append(&fds, (struct pollfd) { .fd = wayland_get_fd() });
+
         if (setjmp(safe_jmp_env)) {
                 goto loop;
         }
@@ -175,16 +190,62 @@ init_loop(char *ppath)
         if (plug_exec(p)) return 1;
         send_resize_event();
 
-loop:
-        for (;;) {
-                if (wayland_dispatch_events()) {
+
+loop:;
+        while (!wayland_should_close()) {
+                if (need_redraw) render_frame();
+
+                while (wayland_prepare_read() != 0) {
+                        if (wayland_dispatch_pending() < 0) {
+                                perror("wayland_dispatch_pending");
+                                return -1;
+                        }
+                }
+                int ret = wayland_flush();
+
+                for_da_each(e, fds)
+                {
+                        e->events = POLLIN;
+                        e->revents = 0;
+                }
+
+                if (ret < 0 && errno == EAGAIN) {
+                        fds.data[0].events |= POLLOUT;
+                } else if (ret < 0) {
+                        wayland_cancel_read();
+                }
+
+                if (poll(fds.data, fds.count, -1) < 0 && errno != EINTR) {
+                        perror("poll");
+                        wayland_cancel_read();
                         break;
                 }
-                if (need_redraw) {
-                        render_frame();
+
+                if (fds.data[0].revents & POLLIN) {
+                        if (wayland_read_events() < 0) {
+                                perror("wayland_read_events");
+                                break;
+                        }
+                        if (wayland_dispatch_pending() < 0) {
+                                perror("dispatch_pending");
+                                break;
+                        }
+                } else {
+                        wayland_cancel_read();
                 }
-                // print_fps();
+                if (fds.data[0].revents & POLLOUT) {
+                        wayland_flush();
+                }
+
+                for (int i = 1; i < fds.count; i++) {
+                        if (fds.data[i].revents & POLLIN) {
+                                // fds.data[i].fd has input to read
+                                // I have to notify
+                        }
+                }
+                print_fps();
         }
+
         plug_release(p);
         plug_destroy(p);
         return 0;

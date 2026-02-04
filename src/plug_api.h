@@ -26,12 +26,14 @@ extern void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
 extern void plug_send_pointer_event(Plugin *p, Pointer_Event);
 extern void plug_replace_img(Plugin *current, char *plugpath);
 extern void plug_render(Plugin *p);
+
+extern void plug_replace_img(Plugin *current, char *plugpath);
+extern void plug_safe_restart();
+extern void send_resize_event();
+
+/* main.c */
 extern void ask_for_redraw();
-
-
-void plug_replace_img(Plugin *current, char *plugpath);
-void plug_safe_restart();
-void send_resize_event();
+extern void listen_to_fd(int fd);
 
 /* window.h */
 extern void window_set(Window *window, int x, int y, uint32_t c, uint32_t fg, uint32_t bg);
