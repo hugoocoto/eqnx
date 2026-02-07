@@ -18,8 +18,8 @@
  */
 
 // If you define this globals, they are assigned at plugin creation.
-Window *self_window = NULL;
-Plugin *self_plugin = NULL;
+void *self_window;
+void *self_plugin;
 
 // This function is called when window is resized. Top left corner is on x,y
 // pixels, with w and h pixels width and height. Use window_px_to_coords() to

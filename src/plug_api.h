@@ -28,7 +28,6 @@ extern void plug_replace_img(Plugin *current, char *plugpath);
 extern void plug_render(Plugin *p);
 
 extern void plug_replace_img(Plugin *current, char *plugpath);
-extern void plug_safe_restart();
 extern void send_resize_event();
 
 /* main.c */

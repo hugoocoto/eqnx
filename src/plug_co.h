@@ -7,7 +7,6 @@
 
 #define LIST_OF_CALLBACKS                    \
         X(int, main, int, char **)           \
-        X(int, event, Event)                 \
         X(int, kp_event, int sym, int mods)  \
         X(int, pointer_event, Pointer_Event) \
         X(int, render)                       \
