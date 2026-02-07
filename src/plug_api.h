@@ -47,6 +47,10 @@ extern void window_coords_to_px(int px, int py, int *x, int *y);
 /* wayland_client.h */
 extern int fb_capture(char *filename);
 
+/* global_symbols.c */
+void *symbol_get(char *symbol);
+int symbol_add(char *symbol, void *value);
+
 
 #define mouse_event pointer_event
 
