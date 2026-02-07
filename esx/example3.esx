@@ -1,0 +1,4 @@
+(vsplit
+    (output "BUFFER" "BUFFER_SIZE" "CALLBACK")
+    (input "BUFFER" "BUFFER_SIZE" "CALLBACK")
+)
