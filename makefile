@@ -22,6 +22,7 @@ SRC = $(wildcard src/*.c)
 OBJ = $(patsubst src/%.c,$(OBJ_DIR)/src/%.o,$(SRC))
 HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h $(DEPS) config.h
 DEPS = thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h thirdparty/stb_c_lexer.h
+PLUG_HEADERS = $(wildcard plugins_src/*.h)
 
 # Protocolos Wayland (Se compilan como objetos separados para el binario final)
 WAYLAND_SOURCES = $(WAYLAND_OUT_PATH)/xdg-shell-protocol.c \
@@ -64,7 +65,7 @@ $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h: $(XDG_DECOR_XML)
 	@mkdir -p $(WAYLAND_OUT_PATH)
 	wayland-scanner client-header $< $@
 
-plugins/%.so: plugins_src/%.c $(OBJ) $(wildchar plugins_src/*.h)
+plugins/%.so: plugins_src/%.c $(OBJ) $(PLUG_HEADERS)
 	@ mkdir -p plugins
 	$(CC) $(FLAGS) $(INCLUDES) -shared $< -o $@
 
@@ -102,4 +103,4 @@ thirdparty/stb_c_lexer.h:
 	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_c_lexer.h -O $@
 
 debug: compile
-	gdb $(OUT) -ex "r -p ./esx/example3.esx" 
+	gdb $(OUT) -ex "r -p ./esx/calendar.esx" 

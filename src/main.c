@@ -16,13 +16,6 @@
 #include "wayland_client.h"
 #include "window.h"
 
-#define GRAY 0xFF666666
-#define BLACK 0xFF000000
-#define RED 0xFFFF0000
-#define GREEN 0xFF00FF00
-#define BLUE 0xFF0000FF
-#define WHITE 0xFFFFFFFF
-
 #ifndef VERSION
 // version is defined in makefile
 #define VERSION "unknown"
@@ -115,33 +108,6 @@ plug_safe_restart()
 {
         longjmp(safe_jmp_env, 1);
 }
-
-// __attribute__((constructor)) static void
-// test()
-// {
-//         Esx_Program prog = { 0 };
-//         int argc;
-//         char **argv;
-//
-//         char str[] = "(vsplit(color_red)(color_blue))";
-//         if (esx_parse_string(str, strlen(str), &prog)) {
-//                 printf("Can not load esx str %s\n", str);
-//                 return;
-//         }
-//
-//         esx_print_program(prog);
-//
-//         if (esx_to_args(prog, &argc, &argv)) {
-//                 printf("Error while parsing arguments from esx file %s\n", str);
-//                 return;
-//         }
-//
-//         for (int i = 0; i < argc; i++) {
-//                 printf("%d: %s\n", i, argv[i]);
-//         }
-//         return;
-// }
-
 
 static int
 init_loop(char *ppath)
