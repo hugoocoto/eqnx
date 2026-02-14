@@ -49,6 +49,11 @@ struct Task_DA {
         Task *data;
 } tasks = { 0 };
 
+/* List of constant predefined tasks */
+#define LIST_OF_TASKS \
+        T("now", 0, time(0), BACKGROUND, YELLOW)
+
+
 /* Month [0, 11] (January = 0) */
 Month *
 month_open(int month, int year)
@@ -172,6 +177,15 @@ repr_month(Month *m)
         return buf;
 }
 
+const char *
+repr_timet(time_t timer)
+{
+        static char buf[128];
+        memset(buf, 0, sizeof buf);
+        strftime(buf, sizeof buf - 1, "%F %T", localtime(&timer));
+        return buf;
+}
+
 Task
 get_task_between(time_t t0, time_t t1, int index)
 {
@@ -272,6 +286,32 @@ today()
 }
 
 void
+task_dump(const char *filename)
+{
+        FILE *fp = fopen(filename, "w");
+        if (!fp) {
+                printf("Can not dump tasks: ");
+                perror(filename);
+                return;
+        }
+
+        for_da_each(elem, tasks)
+        {
+/*           */ #define T(x, ...)                   \
+        /*           */ if (!strcmp(elem->name, x)) \
+                /*           */ continue;
+                LIST_OF_TASKS
+/*           */ #undef T
+                fprintf(fp, "[%s]\n", elem->name);
+                fprintf(fp, "date = %s\n", repr_timet(elem->date));
+                if (elem->desc) fprintf(fp, "desc = \"%s\"\n", elem->desc);
+                if (elem->bg) fprintf(fp, "bg = %x\n", elem->bg);
+                if (elem->fg) fprintf(fp, "fg = %x\n", elem->fg);
+                fprintf(fp, "\n");
+        }
+}
+
+void
 task_parse_table(toml_table_t *table)
 {
         printf("Parsing table %s\n", table->key);
@@ -325,8 +365,11 @@ task_parse_table(toml_table_t *table)
                         }
 
                 } else if (!strcmp("desc", table->kval[i]->key)) {
+                        printf("No yet implemented: `desc` parsing\n");
                 } else if (!strcmp("fg", table->kval[i]->key)) {
+                        printf("No yet implemented: `fg` parsing\n");
                 } else if (!strcmp("bg", table->kval[i]->key)) {
+                        printf("No yet implemented: `bg` parsing\n");
                 } else {
                         printf("Unknown key %s; use one of "
                                "`date`, `desc`, `fg` or `bg`\n",
@@ -359,10 +402,6 @@ task_parse_table(toml_table_t *table)
         }
 }
 
-/* List of constant predefined tasks */
-#define LIST_OF_TASKS \
-        T("now", 0, time(0), BACKGROUND, YELLOW)
-
 void
 add_tasks(const char *filename)
 {
@@ -376,6 +415,7 @@ add_tasks(const char *filename)
 
         fp = fopen(filename, "r");
         if (!fp) {
+                printf("Can not load tasks: ");
                 perror(filename);
                 return;
         }
@@ -392,18 +432,18 @@ add_tasks(const char *filename)
 int
 main(int argc, char **argv)
 {
-        if (argc == 1) {
+        if (argc <= 1) {
                 fprintf(stderr, "Invalid arguments! Usage: %s tasks.toml\n", argv[0]);
                 exit(0);
         }
 
-        char buf[1024] = { 0 };
-        printf("cwd: %s\n", getcwd(buf, sizeof buf));
-
         add_tasks(argv[1]);
         active_month = get_current_month();
         cursor = today()->tm_mday - 1;
+
         mainloop();
+
+        task_dump(argv[1]);
         month_close(active_month);
         return 0;
 }
