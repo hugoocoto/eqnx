@@ -6,6 +6,11 @@
 #include <sys/ucontext.h>
 #include <time.h>
 
+#include "../thirdparty/toml-c.h"
+#undef calloc
+#undef strdup
+#undef strndup
+
 #include "../src/plug_api.h"
 #include "da.h"
 #include "theme.h"
@@ -47,7 +52,6 @@ struct Task_DA {
 Month *
 month_open(int month, int year)
 {
-        printf("month open :: %d %d\n", month, year);
         assert(year >= 1900);
         Month *m = calloc(1, sizeof(Month));
         assert(m);
@@ -146,6 +150,7 @@ kp_event(int sym, int mods)
         }
 }
 
+// To be implemented
 // void
 // pointer_event(Pointer_Event e)
 // {
@@ -229,9 +234,9 @@ render_month()
                                 asc_fg = BLUE;
                                 asc_bg = BACKGROUND;
                         } else {
-                                fg = FOREGROUND;
-                                bg = GREEN;
-                                asc_fg = GREEN;
+                                fg = BLACK;
+                                bg = WHITE;
+                                asc_fg = WHITE;
                                 asc_bg = BACKGROUND;
                         }
 
@@ -252,27 +257,144 @@ render_month()
 void
 render()
 {
-        window_clear(self_window, BACKGROUND, BACKGROUND);
+        window_clear(self_window, 0xDD000000, 0xDD000000);
         render_month();
 }
 
+struct tm *
+today()
+{
+        time_t _t = time(0);
+        struct tm *__t = localtime(&_t);
+        mktime(__t);
+        return __t;
+}
+
+void
+task_parse_table(toml_table_t *table)
+{
+        printf("Parsing table %s\n", table->key);
+        Task t = { 0 };
+        if (table->key) t.name = strdup(table->key);
+
+        for (int i = 0; i < table->nkval; i++) {
+                if (0) {
+                } else if (!strcmp("date", table->kval[i]->key)) {
+                        toml_unparsed_t val = table->kval[i]->val;
+                        toml_timestamp_t ts;
+
+                        if (toml_value_timestamp(val, &ts)) {
+                                printf("[%s]: Can not parse RCF 3339 timestamp from `%s`\n", t.name, val);
+                                continue;
+                        }
+
+                        struct tm *now = today();
+
+                        // set unset fields
+                        if (ts.second < 0) ts.second = 0;
+                        if (ts.minute < 0) ts.minute = 0;
+                        if (ts.hour < 0) ts.hour = 0;
+                        if (ts.day < 0) ts.day = now->tm_mday;
+                        if (ts.month < 0) ts.month = now->tm_mon;
+                        if (ts.year < 0) ts.year = now->tm_year + 1900;
+
+
+                        printf("-- Timestamp --\n");
+                        printf("Seconds            %d \n", ts.second);
+                        printf("Minutes            %d \n", ts.minute);
+                        printf("Hour               %d \n", ts.hour);
+                        printf("Day of the month   %d \n", ts.day);
+                        printf("Month              %d \n", ts.month);
+                        printf("Year               %d \n", ts.year);
+
+                        struct tm date = (struct tm) {
+                                .tm_sec = ts.second,       /* Seconds          [0, 60] */
+                                .tm_min = ts.minute,       /* Minutes          [0, 59] */
+                                .tm_hour = ts.hour,        /* Hour             [0, 23] */
+                                .tm_mday = ts.day,         /* Day of the month [1, 31] */
+                                .tm_mon = ts.month,        /* Month            [0, 11]  (January = 0) */
+                                .tm_year = ts.year - 1900, /* Year minus 1900 */
+                                .tm_isdst = -1,            /* Daylight savings flag */
+                        };
+
+                        if ((t.date = mktime(&date)) < 0) {
+                                perror("mktime");
+                                t.date = 0;
+                                continue;
+                        }
+
+                } else if (!strcmp("desc", table->kval[i]->key)) {
+                } else if (!strcmp("fg", table->kval[i]->key)) {
+                } else if (!strcmp("bg", table->kval[i]->key)) {
+                } else {
+                        printf("Unknown key %s; use one of "
+                               "`date`, `desc`, `fg` or `bg`\n",
+                               table->kval[i]->key);
+                }
+        }
+
+        for (int i = 0; i < table->narr; i++) {
+                printf("Unsupported array tasks: %s\n", table->arr[i]->key);
+        }
+
+        for (int i = 0; i < table->ntbl; i++) {
+                if (table->key) {
+                        printf("Unsupported nested tasks: %s\n", table->tbl[i]->key);
+                }
+                task_parse_table(table->tbl[i]);
+        }
+
+        if (table->key) {
+                if (!t.name) {
+                        printf("Invalid task! Don't forget the name ([name])\n");
+                        return;
+                }
+                if (!t.date) {
+                        printf("Invalid task! Don't forget the date (date = 2027-02-58)\n");
+                        return;
+                }
+                printf("Appending task %s\n", t.name);
+                da_append(&tasks, t);
+        }
+}
+
+/* List of constant predefined tasks */
 #define LIST_OF_TASKS \
         T("now", 0, time(0), BACKGROUND, YELLOW)
 
 void
 add_tasks()
 {
-#define T(a, b, c, d, e) \
+/*   */ #define T(a, b, c, d, e) \
         da_append(&tasks, (Task) { a, b, c, d, e });
         LIST_OF_TASKS
-#undef T
+/*   */ #undef T
+
+        char errbuf[128] = { 0 };
+        FILE *fp;
+
+        fp = fopen("notes.toml", "r");
+        if (!fp) {
+                perror("add tasks");
+                return;
+        }
+
+        toml_table_t *table = toml_parse_file(fp, errbuf, sizeof errbuf - 1);
+        if (!table) {
+                fprintf(stderr, "toml parser: %s\n", errbuf);
+                return;
+        }
+        task_parse_table(table);
+        toml_free(table);
 }
 
 int
 main(int argc, char **argv)
 {
+        puts("----------------------------");
         add_tasks();
         active_month = get_current_month();
+        cursor = today()->tm_mday - 1;
         mainloop();
         month_close(active_month);
         return 0;

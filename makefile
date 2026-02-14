@@ -21,7 +21,7 @@ INCLUDES = -I. -Isrc -I$(WAYLAND_OUT_PATH) -Ithirdparty
 SRC = $(wildcard src/*.c)
 OBJ = $(patsubst src/%.c,$(OBJ_DIR)/src/%.o,$(SRC))
 HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h $(DEPS) config.h
-DEPS = thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h thirdparty/stb_c_lexer.h
+DEPS = thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h thirdparty/stb_c_lexer.h thirdparty/toml-c.h
 PLUG_HEADERS = $(wildcard plugins_src/*.h)
 
 # Protocolos Wayland (Se compilan como objetos separados para el binario final)
@@ -101,6 +101,10 @@ thirdparty/stb_truetype.h:
 thirdparty/stb_c_lexer.h:
 	@mkdir -p thirdparty
 	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_c_lexer.h -O $@
+
+thirdparty/toml-c.h:
+	@mkdir -p thirdparty
+	wget https://raw.githubusercontent.com/arp242/toml-c/refs/heads/main/header/toml-c.h -O $@
 
 debug: compile
 	gdb $(OUT) -ex "r -p ./esx/calendar.esx" 
