@@ -41,7 +41,7 @@ render()
         uint32_t fg = FOREGROUND;
         uint32_t bg = BACKGROUND;
         window_clear(self_window, BACKGROUND, BACKGROUND);
-        int i;
+        size_t i;
         for (i = 0; i < size && buf[i]; i++) {
                 row = i % self_window->w;
                 col = i / self_window->w;

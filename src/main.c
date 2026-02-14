@@ -209,7 +209,7 @@ loop:;
                                 // I have to notify
                         }
                 }
-                print_fps();
+                // print_fps();
         }
 
         plug_release(p);

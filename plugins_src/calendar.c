@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/ucontext.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "../thirdparty/toml-c.h"
 #undef calloc
@@ -295,7 +296,7 @@ task_parse_table(toml_table_t *table)
                         if (ts.minute < 0) ts.minute = 0;
                         if (ts.hour < 0) ts.hour = 0;
                         if (ts.day < 0) ts.day = now->tm_mday;
-                        if (ts.month < 0) ts.month = now->tm_mon;
+                        if (ts.month < 0) ts.month = now->tm_mon + 1;
                         if (ts.year < 0) ts.year = now->tm_year + 1900;
 
 
@@ -312,7 +313,7 @@ task_parse_table(toml_table_t *table)
                                 .tm_min = ts.minute,       /* Minutes          [0, 59] */
                                 .tm_hour = ts.hour,        /* Hour             [0, 23] */
                                 .tm_mday = ts.day,         /* Day of the month [1, 31] */
-                                .tm_mon = ts.month,        /* Month            [0, 11]  (January = 0) */
+                                .tm_mon = ts.month - 1,    /* Month            [0, 11]  (January = 0) */
                                 .tm_year = ts.year - 1900, /* Year minus 1900 */
                                 .tm_isdst = -1,            /* Daylight savings flag */
                         };
@@ -363,7 +364,7 @@ task_parse_table(toml_table_t *table)
         T("now", 0, time(0), BACKGROUND, YELLOW)
 
 void
-add_tasks()
+add_tasks(const char *filename)
 {
 /*   */ #define T(a, b, c, d, e) \
         da_append(&tasks, (Task) { a, b, c, d, e });
@@ -373,9 +374,9 @@ add_tasks()
         char errbuf[128] = { 0 };
         FILE *fp;
 
-        fp = fopen("notes.toml", "r");
+        fp = fopen(filename, "r");
         if (!fp) {
-                perror("add tasks");
+                perror(filename);
                 return;
         }
 
@@ -391,8 +392,15 @@ add_tasks()
 int
 main(int argc, char **argv)
 {
-        puts("----------------------------");
-        add_tasks();
+        if (argc == 1) {
+                fprintf(stderr, "Invalid arguments! Usage: %s tasks.toml\n", argv[0]);
+                exit(0);
+        }
+
+        char buf[1024] = { 0 };
+        printf("cwd: %s\n", getcwd(buf, sizeof buf));
+
+        add_tasks(argv[1]);
         active_month = get_current_month();
         cursor = today()->tm_mday - 1;
         mainloop();
