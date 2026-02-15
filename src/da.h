@@ -15,35 +15,19 @@
         }
 
 #include <assert.h>
-/* Initialize DA_PTR (that is a pointer to a DA). Initial size (int) can be
- * passed as second argument, default is 4. */
-#define da_init(da_ptr, ...)                                                                \
-        ({                                                                                  \
-                DEPRECATED("da_init -> zero initialize it\n");                              \
-                (da_ptr)->capacity = 256;                                                   \
-                __VA_OPT__((da_ptr)->capacity = (__VA_ARGS__));                             \
-                (da_ptr)->count = 0;                                                         \
-                (da_ptr)->data = NULL;                                                      \
-                (da_ptr)->data = DA_REALLOC((da_ptr)->data,                                 \
-                                            sizeof *((da_ptr)->data) * (da_ptr)->capacity); \
-                assert(da_ptr);                                                             \
-                da_ptr;                                                                     \
-        })
-
-#include <assert.h>
 // add E to DA_PTR that is a pointer to a DA of the same type as E
-#define da_append(da_ptr, ...)                                           \
-        ({                                                               \
-                if ((da_ptr)->count >= (da_ptr)->capacity) {              \
-                        (da_ptr)->capacity += 3;                         \
-                        (da_ptr)->data = DA_REALLOC(                     \
-                        (da_ptr)->data,                                  \
-                        sizeof(*((da_ptr)->data)) * (da_ptr)->capacity); \
-                        assert(da_ptr);                                  \
-                }                                                        \
-                assert((da_ptr)->count < (da_ptr)->capacity);             \
-                (da_ptr)->data[(da_ptr)->count++] = (__VA_ARGS__);        \
-                (da_ptr)->count - 1;                                      \
+#define da_append(da_ptr, ...)                                                                 \
+        ({                                                                                     \
+                if ((da_ptr)->count >= (da_ptr)->capacity) {                                   \
+                        (da_ptr)->capacity = (da_ptr)->capacity ? (da_ptr)->capacity * 2 : 16; \
+                        (da_ptr)->data = DA_REALLOC(                                           \
+                        (da_ptr)->data,                                                        \
+                        sizeof(*((da_ptr)->data)) * (da_ptr)->capacity);                       \
+                        assert(((da_ptr)->data));                                              \
+                }                                                                              \
+                assert((da_ptr)->count < (da_ptr)->capacity);                                  \
+                (da_ptr)->data[(da_ptr)->count++] = (__VA_ARGS__);                             \
+                (da_ptr)->count - 1;                                                           \
         })
 
 /* Destroy DA pointed by DA_PTR. DA can be initialized again but previous
@@ -51,20 +35,20 @@
 #define da_destroy(da_ptr)              \
         ({                              \
                 (da_ptr)->capacity = 0; \
-                (da_ptr)->count = 0;     \
+                (da_ptr)->count = 0;    \
                 free((da_ptr)->data);   \
                 (da_ptr)->data = NULL;  \
         })
 
 /* Insert element E into DA pointed by DA_PTR at index I. */
 #include <string.h> // memmove
-#define da_insert(da_ptr, e, i)                                                 \
-        ({                                                                      \
+#define da_insert(da_ptr, e, i)                                                  \
+        ({                                                                       \
                 assert((i) >= 0 && (i) <= (da_ptr)->count);                      \
-                da_append((da_ptr), (__typeof__((e))) { 0 });                   \
-                memmove((da_ptr)->data + (i) + 1, (da_ptr)->data + (i),         \
+                da_append((da_ptr), (__typeof__((e))) { 0 });                    \
+                memmove((da_ptr)->data + (i) + 1, (da_ptr)->data + (i),          \
                         ((da_ptr)->count - (i) - 1) * sizeof *((da_ptr)->data)); \
-                (da_ptr)->data[(i)] = (e);                                      \
+                (da_ptr)->data[(i)] = (e);                                       \
         })
 
 /* Get size */
@@ -74,23 +58,22 @@
 #define da_index(da_elem_ptr, da) (int) ((da_elem_ptr) - (da.data))
 
 /* Remove element al index I */
-#define da_remove(da_ptr, i)                                              \
-        ({                                                                \
+#define da_remove(da_ptr, i)                                               \
+        ({                                                                 \
                 if ((i) >= 0 && (i) < (da_ptr)->count) {                   \
                         --(da_ptr)->count;                                 \
-                        memmove(                                          \
-                        (da_ptr)->data + (i), (da_ptr)->data + (i) + 1,   \
+                        memmove(                                           \
+                        (da_ptr)->data + (i), (da_ptr)->data + (i) + 1,    \
                         ((da_ptr)->count - (i)) * sizeof *(da_ptr)->data); \
-                }                                                         \
+                }                                                          \
         })
 
 /* can be used as:
  * for_da_each(i, DA), where
  * - i: variable where a pointer to an element from DA is going to be stored
  * - DA: is a valid DA */
-#define for_da_each(_i_, da)                                                 \
-        for (AUTO_TYPE _i_ = (da).data; (int) (_i_ - (da).data) < (da).count; \
-             ++_i_)
+#define for_da_each(_i_, da) \
+        for (AUTO_TYPE(_i_) = (da).data; (int) ((_i_) - (da).data) < (da).count; ++(_i_))
 
 #define da_dup(da_ptr)                                                                          \
         ({                                                                                      \

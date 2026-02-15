@@ -53,11 +53,11 @@ window_resize(Window *window, int x, int y, int w, int h)
 //         return window->buffer[r * window->gap + c].cp;
 // }
 
-void
+int
 window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str)
 {
-        if (!str) return;
-        if (y < 0) return;
+        if (!str) return 0;
+        if (y < 0) return 0;
         size_t len = strlen(str);
         size_t i = 0;
         if (x < 0) i += -x;
@@ -65,19 +65,28 @@ window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str)
                 if (!isprint(str[i])) continue;
                 window_set(window, x + i, y, str[i], fg, bg);
         }
+        return len;
 }
 
-void
+int
 window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...)
 {
-        if (!fmt) return;
-
-        char buf[1024] = { 0 };
+        if (!fmt) return 0;
         va_list ap;
         va_start(ap, fmt);
-        vsnprintf(buf, sizeof buf - 1, fmt, ap);
+        int ret = window_vprintf(window, x, y, fg, bg, fmt, ap);
         va_end(ap);
+        return ret;
+}
+
+int
+window_vprintf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, va_list ap)
+{
+        if (!fmt) return 0;
+        char buf[1024] = { 0 };
+        int len = vsnprintf(buf, sizeof buf - 1, fmt, ap);
         window_puts(window, x, y, fg, bg, buf);
+        return len;
 }
 
 struct Char3

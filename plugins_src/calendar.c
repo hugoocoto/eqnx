@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +15,14 @@
 
 #include "../src/plug_api.h"
 #include "da.h"
+
 #include "theme.h"
+#undef BACKGROUND
+#define BACKGROUND 0xdd000000 // semi transparent background
+
+#define SEP 1
+#define INITIAL_Y SEP
+#define INITIAL_X 0
 
 typedef struct Month Month;
 
@@ -43,11 +51,25 @@ typedef struct Task {
         uint32_t fg, bg;
 } Task;
 
+Task *get_task_between(time_t t0, time_t t1, int index);
+int count_task_between(time_t t0, time_t t1, int index);
+
 struct Task_DA {
         int capacity;
         int size;
         Task *data;
 } tasks = { 0 };
+
+typedef struct Button {
+        int x, y, w, h;
+        void (*action)();
+} Button;
+
+struct {
+        int capacity;
+        int size;
+        Button *data;
+} buttons;
 
 /* List of constant predefined tasks */
 #define LIST_OF_TASKS \
@@ -81,6 +103,15 @@ month_open(int month, int year)
         return m;
 }
 
+struct tm *
+today()
+{
+        time_t _t = time(0);
+        struct tm *__t = localtime(&_t);
+        mktime(__t);
+        return __t;
+}
+
 void
 month_close(Month *m)
 {
@@ -99,7 +130,6 @@ get_current_month()
 Month *
 get_next_month(Month *m)
 {
-        printf("getting next month\n");
         struct tm tm = m->days[0].tm;
         int mon = (tm.tm_mon + 1) % 12;
         int year = tm.tm_year + (tm.tm_mon == 11);
@@ -109,7 +139,6 @@ get_next_month(Month *m)
 Month *
 get_prev_month(Month *m)
 {
-        printf("getting prev month\n");
         struct tm tm = m->days[0].tm;
         int mon = (tm.tm_mon + 11) % 12;
         int year = tm.tm_year - (tm.tm_mon == 0);
@@ -156,11 +185,66 @@ kp_event(int sym, int mods)
         }
 }
 
-// To be implemented
-// void
-// pointer_event(Pointer_Event e)
-// {
-// }
+int
+pointer_get_month_day(int x, int y, int *h)
+{
+        if (y < INITIAL_Y || x < INITIAL_X || x >= month_cell_width * 7) {
+                return 0;
+        }
+
+        int offset = active_month->days[0].tm.tm_wday;
+        int row = (y - INITIAL_Y) / month_cell_height;
+        int col = (x - INITIAL_X) / month_cell_width;
+        int is_sep = (x - INITIAL_X) % month_cell_width < SEP;
+        if (h) *h = (y - INITIAL_Y) % month_cell_height;
+        if (row == 0 && col < offset) return 0;
+
+        int day = row * 7 + col - offset + 1;
+        if (day <= 0 || day > active_month->len) return 0;
+
+        return day;
+}
+
+void
+pointer_event(Pointer_Event e)
+{
+        static int last_day_pressed = 0;
+        static int row = 0;
+
+        if (e.type == Pointer_Press) {
+                for_da_each(but, buttons)
+                {
+                        if (but->x <= e.x && but->x > e.x - but->w &&
+                            but->y <= e.y && but->y > e.y - but->h) {
+                                but->action();
+                        }
+                }
+
+                last_day_pressed = pointer_get_month_day(e.x, e.y, &row);
+        }
+
+        if (e.type == Pointer_Release) {
+                int day = pointer_get_month_day(e.x, e.y, 0);
+                if (last_day_pressed > 0 && day == last_day_pressed) {
+                        printf("Click on day %d\n", day);
+                }
+                if (last_day_pressed > 0 && day != last_day_pressed) {
+                        time_t t0 = active_month->days[last_day_pressed - 1].time;
+                        time_t t1 = active_month->days[last_day_pressed].time;
+                        Task *t = get_task_between(t0, t1, row - 1);
+                        if (!t) return;
+                        struct tm *tm = localtime(&t->date);
+                        tm->tm_mday = day;
+                        t->date = mktime(tm);
+                }
+        }
+
+        if (e.type == Pointer_Move) {
+                int day = pointer_get_month_day(e.x, e.y, 0);
+                cursor = day > 0 ? day - 1 : cursor;
+                ask_for_redraw();
+        }
+}
 
 const char *const numbers[] = {
         "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
@@ -169,11 +253,29 @@ const char *const numbers[] = {
 };
 
 const char *
+repr_today()
+{
+        static char buf[128];
+        memset(buf, 0, sizeof buf);
+        strftime(buf, sizeof buf - 1, "%a %d %b", today());
+        return buf;
+}
+
+const char *
 repr_month(Month *m)
 {
         static char buf[128];
         memset(buf, 0, sizeof buf);
-        strftime(buf, sizeof buf - 1, "%B %Y", &m->days->tm);
+        strftime(buf, sizeof buf - 1, "%b", &m->days->tm);
+        return buf;
+}
+
+const char *
+repr_year(Month *m)
+{
+        static char buf[128];
+        memset(buf, 0, sizeof buf);
+        strftime(buf, sizeof buf - 1, "%Y", &m->days->tm);
         return buf;
 }
 
@@ -186,59 +288,121 @@ repr_timet(time_t timer)
         return buf;
 }
 
-Task
+int
+count_task_between(time_t t0, time_t t1, int index)
+{
+        int i = 0;
+        int count = 0;
+        for (; i < tasks.size; i++) {
+                if (tasks.data[i].date >= t0 && tasks.data[i].date < t1) {
+                        ++count;
+                }
+        }
+        return count - index;
+}
+
+Task *
 get_task_between(time_t t0, time_t t1, int index)
 {
-#define USE_CACHE /* toggleable as I don't know if it works (I know I have to \
-                     use a sorted data structure but I didn't have time yet) */
         int i = 0;
-#ifdef USE_CACHE
-        static struct {
-                time_t t0;
-                time_t t1;
-                time_t index;
-                time_t da_index;
-        } cache = { 0 };
-
-        int start_index = index;
-        if (cache.t0 == t0 && cache.t1 == t1 && cache.index <= index) {
-                i = cache.da_index;
-                index -= cache.index;
-        }
-#endif
-
         for (; i < tasks.size; i++) {
                 if (tasks.data[i].date >= t0 && tasks.data[i].date < t1) {
                         if (index == 0) {
-#ifdef USE_CACHE
-                                cache.t0 = t0;
-                                cache.t1 = t1;
-                                cache.da_index = i;
-                                cache.index = start_index;
-#endif
-                                return tasks.data[i];
+                                return tasks.data + i;
                         }
                         --index;
                 }
         }
-        return (Task) { 0 };
+        return NULL;
+}
+
+int
+set_button(Window *window, int x, int y, uint32_t fg, uint32_t bg, void (*action)(), char *fmt, ...)
+{
+        va_list ap;
+        va_start(ap, fmt);
+        int len = window_vprintf(window, x, y, fg, bg, fmt, ap);
+        va_end(ap);
+        da_append(&buttons, (Button) { .x = x, .y = y, .w = len, .h = 1, .action = action });
+        return len;
+}
+
+void
+drop_all_buttons()
+{
+        buttons.size = 0;
+}
+
+void
+button_prev_year()
+{
+        // guarrada historica
+        for (int i = 0; i < 12; i++) {
+                active_month = get_prev_month(active_month);
+        }
+        cursor = 0;
+        ask_for_redraw();
+}
+
+void
+button_next_year()
+{
+        for (int i = 0; i < 12; i++) {
+                active_month = get_next_month(active_month);
+        }
+        cursor = 0;
+        ask_for_redraw();
+}
+
+void
+button_prev_month()
+{
+        active_month = get_prev_month(active_month);
+        cursor = 0;
+        ask_for_redraw();
+}
+
+void
+button_next_month()
+{
+        active_month = get_next_month(active_month);
+        cursor = 0;
+        ask_for_redraw();
+}
+
+void
+button_today()
+{
+        active_month = get_current_month();
+        cursor = today()->tm_mday - 1;
+        ask_for_redraw();
 }
 
 void
 render_month()
 {
-        if (month_cell_height < 2 || month_cell_width < 3) {
+        drop_all_buttons();
+        if (month_cell_height < 2 || month_cell_width < 4) {
                 window_clear(self_window, RED, RED);
-                window_puts(self_window, 0, 0, FOREGROUND, RED, "Screen too small");
+                window_puts(self_window, 0, 0, BLACK, RED, "Screen too small");
                 return;
         }
 
         int offset = active_month->days[0].tm.tm_wday;
-        assert(offset >= 0 && offset <= 6 * month_cell_width);
         uint32_t fg, bg, asc_bg, asc_fg;
         int n = 0, i, j, k;
+        int off = 0;
 
-        window_printf(self_window, 0, 0, FOREGROUND, BACKGROUND, "%s", repr_month(active_month));
+        // stack top bar
+        off += set_button(self_window, 0, 0, BLUE, BACKGROUND, button_prev_month, " < ");
+        off += window_printf(self_window, off, 0, FOREGROUND, BACKGROUND, "%s", repr_month(active_month));
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_next_month, " > ");
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_prev_year, " < ");
+        off += window_printf(self_window, off, 0, FOREGROUND, BACKGROUND, "%s", repr_year(active_month));
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_next_year, " > ");
+        off += set_button(self_window, off, 0, YELLOW, BACKGROUND, button_today, " %s ", repr_today());
+
+        assert(offset >= 0 && offset <= 6 * month_cell_width);
         for (j = 0;; j += month_cell_height) {
                 for (i = offset; i < 7 && n < active_month->len; i++, n++, offset = 0) {
                         assert(n >= 0 && n <= 30);
@@ -255,14 +419,27 @@ render_month()
                                 asc_bg = BACKGROUND;
                         }
 
-                        window_printf(self_window, i * month_cell_width + 1, j + 1, asc_fg, asc_bg, "%*.*s ",
-                                      month_cell_width - 2, month_cell_width - 2, numbers[n]);
+                        window_printf(self_window, i * month_cell_width + SEP, j + INITIAL_Y, asc_fg, asc_bg, "%*.*s ",
+                                      month_cell_width - 1 - SEP, month_cell_width - 1 - SEP, numbers[n]);
                         for (k = 1; k < month_cell_height; k++) {
                                 time_t t0 = active_month->days[n].time;
                                 time_t t1 = active_month->days[n + 1].time;
-                                Task t = get_task_between(t0, t1, k - 1);
-                                window_printf(self_window, i * month_cell_width + 1, j + k + 1, t.fg ?: fg, t.bg ?: bg, "%-*.*s",
-                                              month_cell_width - 1, month_cell_width - 1, t.name ?: "");
+                                if (k + 1 == month_cell_height) {
+                                        int count = count_task_between(t0, t1, k - 1);
+                                        if (count > 1) {
+                                                window_printf(self_window, i * month_cell_width + SEP, j + k + INITIAL_Y, fg, bg, "+%-*d",
+                                                              month_cell_width - 1 - SEP, count);
+                                                continue;
+                                        }
+                                }
+                                Task *t;
+                                if ((t = get_task_between(t0, t1, k - 1))) {
+                                        window_printf(self_window, i * month_cell_width + SEP, j + k + INITIAL_Y, t->fg ?: fg, t->bg ?: bg, "%-*.*s",
+                                                      month_cell_width - SEP, month_cell_width - SEP, t->name);
+                                } else {
+                                        window_printf(self_window, i * month_cell_width + SEP, j + k + INITIAL_Y, fg, bg, "%-*.*s",
+                                                      month_cell_width - SEP, month_cell_width - SEP, "");
+                                }
                         }
                 }
                 if (n >= active_month->len) break;
@@ -272,17 +449,8 @@ render_month()
 void
 render()
 {
-        window_clear(self_window, 0xDD000000, 0xDD000000);
+        window_clear(self_window, BACKGROUND, BACKGROUND);
         render_month();
-}
-
-struct tm *
-today()
-{
-        time_t _t = time(0);
-        struct tm *__t = localtime(&_t);
-        mktime(__t);
-        return __t;
 }
 
 void
@@ -339,14 +507,13 @@ task_parse_table(toml_table_t *table)
                         if (ts.month < 0) ts.month = now->tm_mon + 1;
                         if (ts.year < 0) ts.year = now->tm_year + 1900;
 
-
-                        printf("-- Timestamp --\n");
-                        printf("Seconds            %d \n", ts.second);
-                        printf("Minutes            %d \n", ts.minute);
-                        printf("Hour               %d \n", ts.hour);
-                        printf("Day of the month   %d \n", ts.day);
-                        printf("Month              %d \n", ts.month);
-                        printf("Year               %d \n", ts.year);
+                        // printf("-- Timestamp --\n");
+                        // printf("Seconds            %d \n", ts.second);
+                        // printf("Minutes            %d \n", ts.minute);
+                        // printf("Hour               %d \n", ts.hour);
+                        // printf("Day of the month   %d \n", ts.day);
+                        // printf("Month              %d \n", ts.month);
+                        // printf("Year               %d \n", ts.year);
 
                         struct tm date = (struct tm) {
                                 .tm_sec = ts.second,       /* Seconds          [0, 60] */
@@ -425,6 +592,7 @@ add_tasks(const char *filename)
                 fprintf(stderr, "toml parser: %s\n", errbuf);
                 return;
         }
+
         task_parse_table(table);
         toml_free(table);
 }

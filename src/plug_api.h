@@ -37,8 +37,9 @@ extern void listen_to_fd(int fd);
 /* window.h */
 extern void window_set(Window *window, int x, int y, uint32_t c, uint32_t fg, uint32_t bg);
 extern void window_setall(Window *window, uint32_t c, uint32_t fg, uint32_t bg);
-extern void window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str);
-extern void window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...);
+extern int window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str);
+extern int window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...);
+extern int window_vprintf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, va_list ap);
 extern void window_clear(Window *window, uint32_t fg, uint32_t bg);
 extern void window_clear_line(Window *window, int line, uint32_t fg, uint32_t bg);
 extern void window_px_to_coords(int px, int py, int *x, int *y);

@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 typedef struct Window Window;
 
@@ -18,8 +19,9 @@ uint32_t window_get_codepoint(Window *window, int x, int y);
 
 void window_set(Window *window, int x, int y, uint32_t c, uint32_t fg, uint32_t bg);
 void window_setall(Window *window, uint32_t c, uint32_t fg, uint32_t bg);
-void window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str);
-void window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...);
+int window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str);
+int window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...);
+int window_vprintf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, va_list ap);
 
 // Get a window representing part of window.
 Window *window_cut(Window *window, int x, int y, int w, int h);
