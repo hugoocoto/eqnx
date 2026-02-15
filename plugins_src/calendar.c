@@ -7,6 +7,7 @@
 #include <sys/ucontext.h>
 #include <time.h>
 #include <unistd.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "../thirdparty/toml-c.h"
 #undef calloc
@@ -33,6 +34,11 @@ Month *active_month = NULL;
 static int month_cell_height;
 static int month_cell_width;
 static int cursor = 0;
+static enum {
+        Render_Month,
+        Render_Day,
+        Render_Forms,
+} render_state = Render_Month;
 
 typedef struct Cell {
         struct tm tm;
@@ -156,175 +162,10 @@ resize(int px, int py, int pw, int ph)
 }
 
 void
-kp_event(int sym, int mods)
+open_day(int day)
 {
-        if (sym == 'n' && mods | Mod_Control) {
-                active_month = get_next_month(active_month);
-                cursor = 0;
-                ask_for_redraw();
-        }
-
-        else if (sym == 'p' && mods | Mod_Control) {
-                active_month = get_prev_month(active_month);
-                cursor = 0;
-                ask_for_redraw();
-        }
-
-        else if (sym == 'h' && mods == Mod_None) {
-                if (cursor > 0) --cursor;
-                ask_for_redraw();
-        } else if (sym == 'j' && mods == Mod_None) {
-                ask_for_redraw();
-                if ((cursor += 7) >= active_month->len) cursor = active_month->len - 1;
-        } else if (sym == 'k' && mods == Mod_None) {
-                if ((cursor -= 7) < 0) cursor = 0;
-                ask_for_redraw();
-        } else if (sym == 'l' && mods == Mod_None) {
-                if (cursor < active_month->len - 1) ++cursor;
-                ask_for_redraw();
-        }
-}
-
-int
-pointer_get_month_day(int x, int y, int *h)
-{
-        if (y < INITIAL_Y || x < INITIAL_X || x >= month_cell_width * 7) {
-                return 0;
-        }
-
-        int offset = active_month->days[0].tm.tm_wday;
-        int row = (y - INITIAL_Y) / month_cell_height;
-        int col = (x - INITIAL_X) / month_cell_width;
-        int is_sep = (x - INITIAL_X) % month_cell_width < SEP;
-        if (h) *h = (y - INITIAL_Y) % month_cell_height;
-        if (row == 0 && col < offset) return 0;
-
-        int day = row * 7 + col - offset + 1;
-        if (day <= 0 || day > active_month->len) return 0;
-
-        return day;
-}
-
-void
-pointer_event(Pointer_Event e)
-{
-        static int last_day_pressed = 0;
-        static int row = 0;
-
-        if (e.type == Pointer_Press) {
-                for_da_each(but, buttons)
-                {
-                        if (but->x <= e.x && but->x > e.x - but->w &&
-                            but->y <= e.y && but->y > e.y - but->h) {
-                                but->action();
-                        }
-                }
-
-                last_day_pressed = pointer_get_month_day(e.x, e.y, &row);
-        }
-
-        if (e.type == Pointer_Release) {
-                int day = pointer_get_month_day(e.x, e.y, 0);
-                if (last_day_pressed > 0 && day == last_day_pressed) {
-                        printf("Click on day %d\n", day);
-                }
-                if (last_day_pressed > 0 && day != last_day_pressed) {
-                        time_t t0 = active_month->days[last_day_pressed - 1].time;
-                        time_t t1 = active_month->days[last_day_pressed].time;
-                        Task *t = get_task_between(t0, t1, row - 1);
-                        if (!t) return;
-                        struct tm *tm = localtime(&t->date);
-                        tm->tm_mday = day;
-                        t->date = mktime(tm);
-                }
-        }
-
-        if (e.type == Pointer_Move) {
-                int day = pointer_get_month_day(e.x, e.y, 0);
-                cursor = day > 0 ? day - 1 : cursor;
-                ask_for_redraw();
-        }
-}
-
-const char *const numbers[] = {
-        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
-        "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25",
-        "26", "27", "28", "29", "30", "31"
-};
-
-const char *
-repr_today()
-{
-        static char buf[128];
-        memset(buf, 0, sizeof buf);
-        strftime(buf, sizeof buf - 1, "%a %d %b", today());
-        return buf;
-}
-
-const char *
-repr_month(Month *m)
-{
-        static char buf[128];
-        memset(buf, 0, sizeof buf);
-        strftime(buf, sizeof buf - 1, "%b", &m->days->tm);
-        return buf;
-}
-
-const char *
-repr_year(Month *m)
-{
-        static char buf[128];
-        memset(buf, 0, sizeof buf);
-        strftime(buf, sizeof buf - 1, "%Y", &m->days->tm);
-        return buf;
-}
-
-const char *
-repr_timet(time_t timer)
-{
-        static char buf[128];
-        memset(buf, 0, sizeof buf);
-        strftime(buf, sizeof buf - 1, "%F %T", localtime(&timer));
-        return buf;
-}
-
-int
-count_task_between(time_t t0, time_t t1, int index)
-{
-        int i = 0;
-        int count = 0;
-        for (; i < tasks.size; i++) {
-                if (tasks.data[i].date >= t0 && tasks.data[i].date < t1) {
-                        ++count;
-                }
-        }
-        return count - index;
-}
-
-Task *
-get_task_between(time_t t0, time_t t1, int index)
-{
-        int i = 0;
-        for (; i < tasks.size; i++) {
-                if (tasks.data[i].date >= t0 && tasks.data[i].date < t1) {
-                        if (index == 0) {
-                                return tasks.data + i;
-                        }
-                        --index;
-                }
-        }
-        return NULL;
-}
-
-int
-set_button(Window *window, int x, int y, uint32_t fg, uint32_t bg, void (*action)(), char *fmt, ...)
-{
-        va_list ap;
-        va_start(ap, fmt);
-        int len = window_vprintf(window, x, y, fg, bg, fmt, ap);
-        va_end(ap);
-        da_append(&buttons, (Button) { .x = x, .y = y, .w = len, .h = 1, .action = action });
-        return len;
+        render_state = Render_Day;
+        cursor = day - 1;
 }
 
 void
@@ -332,6 +173,46 @@ drop_all_buttons()
 {
         buttons.size = 0;
 }
+
+void
+button_prev_day()
+{
+        if (cursor-- <= 0) {
+                active_month = get_prev_month(active_month);
+                cursor = active_month->len - 1;
+        }
+        ask_for_redraw();
+}
+
+void
+button_next_day()
+{
+        if (++cursor >= active_month->len) {
+                active_month = get_next_month(active_month);
+                cursor = 0;
+        }
+        ask_for_redraw();
+}
+
+void
+button_prev_week()
+{
+        // guarrada historica
+        for (int i = 0; i < 7; i++) {
+                button_prev_day();
+        }
+        ask_for_redraw();
+}
+
+void
+button_next_week()
+{
+        for (int i = 0; i < 7; i++) {
+                button_next_day();
+        }
+        ask_for_redraw();
+}
+
 
 void
 button_prev_year()
@@ -376,6 +257,204 @@ button_today()
         active_month = get_current_month();
         cursor = today()->tm_mday - 1;
         ask_for_redraw();
+}
+
+void
+kp_event(int sym, int mods)
+{
+        if (sym == 'n' && mods | Mod_Control) {
+                button_next_month();
+        }
+
+        else if (sym == 'p' && mods | Mod_Control) {
+                button_prev_month();
+        }
+
+        else if (sym == XKB_KEY_Return && mods == Mod_None) {
+                open_day(cursor + 1);
+                ask_for_redraw();
+        }
+
+        else if (sym == 'h' && mods == Mod_None) {
+                if (render_state == Render_Month) {
+                        if (cursor > 0) --cursor;
+                        ask_for_redraw();
+                } else if (render_state == Render_Day) {
+                        button_prev_day();
+                }
+
+        } else if (sym == 'j' && mods == Mod_None) {
+                if (render_state == Render_Month) {
+                        ask_for_redraw();
+                        if ((cursor += 7) >= active_month->len) cursor = active_month->len - 1;
+                } else if (render_state == Render_Day) {
+                        button_prev_week();
+                }
+
+        } else if (sym == 'k' && mods == Mod_None) {
+                if (render_state == Render_Month) {
+                        if ((cursor -= 7) < 0) cursor = 0;
+                        ask_for_redraw();
+                } else if (render_state == Render_Day) {
+                        button_next_week();
+                }
+
+        } else if (sym == 'l' && mods == Mod_None) {
+                if (render_state == Render_Month) {
+                        if (cursor < active_month->len - 1) ++cursor;
+                        ask_for_redraw();
+                } else if (render_state == Render_Day) {
+                        button_next_day();
+                }
+        }
+}
+
+int
+pointer_get_month_day(int x, int y, int *h)
+{
+        if (y < INITIAL_Y || x < INITIAL_X || x >= month_cell_width * 7) {
+                return 0;
+        }
+
+        int offset = active_month->days[0].tm.tm_wday;
+        int row = (y - INITIAL_Y) / month_cell_height;
+        int col = (x - INITIAL_X) / month_cell_width;
+        int is_sep = (x - INITIAL_X) % month_cell_width < SEP;
+        if (h) *h = (y - INITIAL_Y) % month_cell_height;
+        if (row == 0 && col < offset) return 0;
+
+        int day = row * 7 + col - offset + 1;
+        if (day <= 0 || day > active_month->len) return 0;
+
+        return day;
+}
+
+void
+pointer_event(Pointer_Event e)
+{
+        static int last_day_pressed = 0;
+        static int row = 0;
+
+        if (e.type == Pointer_Press) {
+                for_da_each(but, buttons)
+                {
+                        if (but->x <= e.x && but->x > e.x - but->w &&
+                            but->y <= e.y && but->y > e.y - but->h) {
+                                but->action();
+                        }
+                }
+        }
+
+        if (render_state == Render_Month && e.type == Pointer_Press) {
+                last_day_pressed = pointer_get_month_day(e.x, e.y, &row);
+        }
+
+        if (render_state == Render_Month && e.type == Pointer_Release) {
+                int day = pointer_get_month_day(e.x, e.y, 0);
+                if (last_day_pressed > 0 && day == last_day_pressed) {
+                        open_day(day);
+                        ask_for_redraw();
+                }
+                if (last_day_pressed > 0 && day != last_day_pressed) {
+                        time_t t0 = active_month->days[last_day_pressed - 1].time;
+                        time_t t1 = active_month->days[last_day_pressed].time;
+                        Task *t = get_task_between(t0, t1, row - 1);
+                        if (!t) return;
+                        struct tm *tm = localtime(&t->date);
+                        tm->tm_mday = day;
+                        t->date = mktime(tm);
+                }
+        }
+
+        if (render_state == Render_Month && e.type == Pointer_Move) {
+                int day = pointer_get_month_day(e.x, e.y, 0);
+                cursor = day > 0 ? day - 1 : cursor;
+                ask_for_redraw();
+        }
+}
+
+const char *const numbers[] = {
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+        "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25",
+        "26", "27", "28", "29", "30", "31"
+};
+
+const char *
+repr_tm(struct tm *tm, const char *fmt)
+{
+        static char buf[128];
+        memset(buf, 0, sizeof buf);
+        strftime(buf, sizeof buf - 1, fmt, tm);
+        return buf;
+}
+
+const char *
+repr_day(int day)
+{
+        return repr_tm(&active_month->days[day].tm, "%a %d %b");
+}
+
+const char *
+repr_today()
+{
+        return repr_tm(today(), "%a %d %b");
+}
+
+const char *
+repr_month(Month *m)
+{
+        return repr_tm(&m->days->tm, "%b");
+}
+
+const char *
+repr_year(Month *m)
+{
+        return repr_tm(&m->days->tm, "%Y");
+}
+
+const char *
+repr_timet(time_t timer)
+{
+        return repr_tm(localtime(&timer), "%F %T");
+}
+
+int
+count_task_between(time_t t0, time_t t1, int index)
+{
+        int i = 0;
+        int count = 0;
+        for (; i < tasks.size; i++) {
+                if (tasks.data[i].date >= t0 && tasks.data[i].date < t1) {
+                        ++count;
+                }
+        }
+        return count - index;
+}
+
+Task *
+get_task_between(time_t t0, time_t t1, int index)
+{
+        int i = 0;
+        for (; i < tasks.size; i++) {
+                if (tasks.data[i].date >= t0 && tasks.data[i].date < t1) {
+                        if (index == 0) {
+                                return tasks.data + i;
+                        }
+                        --index;
+                }
+        }
+        return NULL;
+}
+
+int
+set_button(Window *window, int x, int y, uint32_t fg, uint32_t bg, void (*action)(), char *fmt, ...)
+{
+        va_list ap;
+        va_start(ap, fmt);
+        int len = window_vprintf(window, x, y, fg, bg, fmt, ap);
+        va_end(ap);
+        da_append(&buttons, (Button) { .x = x, .y = y, .w = len, .h = 1, .action = action });
+        return len;
 }
 
 void
@@ -447,10 +526,39 @@ render_month()
 }
 
 void
+render_day()
+{
+        drop_all_buttons();
+        if (month_cell_height < 2 || month_cell_width < 4) {
+                window_clear(self_window, RED, RED);
+                window_puts(self_window, 0, 0, BLACK, RED, "Screen too small");
+                return;
+        }
+
+        int off = 0;
+
+        // stack top bar
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_prev_month, " <<");
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_prev_day, " < ");
+        off += window_printf(self_window, off, 0, FOREGROUND, BACKGROUND, "%s", repr_day(cursor));
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_next_day, " > ");
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_next_month, ">> ");
+}
+
+void
+render_forms()
+{
+}
+
+void
 render()
 {
         window_clear(self_window, BACKGROUND, BACKGROUND);
-        render_month();
+        switch (render_state) {
+        case Render_Month: render_month(); break;
+        case Render_Day: render_day(); break;
+        case Render_Forms: render_forms(); break;
+        }
 }
 
 void
