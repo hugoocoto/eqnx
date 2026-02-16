@@ -34,6 +34,8 @@ Month *active_month = NULL;
 static int month_cell_height;
 static int month_cell_width;
 static int cursor = 0;
+static int day_selection = 0;
+const int entries_per_task = 4;
 static enum {
         Render_Month,
         Render_Day,
@@ -226,8 +228,12 @@ close_form()
                 if (!strcmp(form_info.field, "name") && form_info.input.data[0]) {
                         form_info.t->name = strdup(form_info.input.data);
                 }
-                if (!strcmp(form_info.field, "desc") && form_info.input.data[0]) {
-                        form_info.t->desc = strdup(form_info.input.data);
+                if (!strcmp(form_info.field, "desc")) {
+                        if (form_info.input.data[0] == 0) {
+                                form_info.t->desc = 0;
+                        } else {
+                                form_info.t->desc = strdup(form_info.input.data);
+                        }
                 }
         }
         memset(&form_info, 0, sizeof form_info);
@@ -262,6 +268,7 @@ open_day_view(int day)
 {
         render_state = Render_Day;
         cursor = day - 1;
+        day_selection = 0;
         ask_for_redraw();
 }
 
@@ -378,7 +385,7 @@ button_today(int x, int y)
 void
 button_edit_name(int x, int y)
 {
-        int task_n = (y - 1) / 4; // offset without heading div by lines per task
+        int task_n = (y - 1) / (entries_per_task + 1);
         time_t t0 = active_month->days[cursor].time;
         time_t t1 = active_month->days[cursor + 1].time;
         Task *t = get_task_between(t0, t1, task_n);
@@ -389,7 +396,7 @@ button_edit_name(int x, int y)
 void
 button_edit_desc(int x, int y)
 {
-        int task_n = (y - 1) / 4; // offset without heading div by lines per task
+        int task_n = (y - 1) / (entries_per_task + 1);
         time_t t0 = active_month->days[cursor].time;
         time_t t1 = active_month->days[cursor + 1].time;
         Task *t = get_task_between(t0, t1, task_n);
@@ -400,12 +407,26 @@ button_edit_desc(int x, int y)
 void
 button_edit_date(int x, int y)
 {
-        int task_n = (y - 1) / 4; // offset without heading div by lines per task
+        int task_n = (y - 1) / (entries_per_task + 1);
         time_t t0 = active_month->days[cursor].time;
         time_t t1 = active_month->days[cursor + 1].time;
         Task *t = get_task_between(t0, t1, task_n);
         assert(t);
         open_form(t, "date");
+}
+
+void
+button_delete_task(int x, int y)
+{
+        int task_n = (y - 1) / (entries_per_task + 1);
+        time_t t0 = active_month->days[cursor].time;
+        time_t t1 = active_month->days[cursor + 1].time;
+        Task *t = get_task_between(t0, t1, task_n);
+        assert(t);
+        int task_index = da_index(tasks, t);
+        assert(task_index > 0 && task_index < tasks.size);
+        da_remove(&tasks, task_index);
+        ask_for_redraw();
 }
 
 void
@@ -422,6 +443,28 @@ button_form_ok(int x, int y)
 }
 
 void
+button_day_selection_down(int x, int y)
+{
+        time_t t0 = active_month->days[cursor].time;
+        time_t t1 = active_month->days[cursor + 1].time;
+        int entries = count_task_between(t0, t1, 0) * entries_per_task;
+        if (entries == 0) return;
+        day_selection = (day_selection + 1) % entries;
+        ask_for_redraw();
+}
+
+void
+button_day_selection_up(int x, int y)
+{
+        time_t t0 = active_month->days[cursor].time;
+        time_t t1 = active_month->days[cursor + 1].time;
+        int entries = count_task_between(t0, t1, 0) * entries_per_task;
+        if (entries == 0) return;
+        day_selection = (day_selection - 1 + entries) % entries;
+        ask_for_redraw();
+}
+
+void
 kp_event(int sym, int mods)
 {
         if (render_state == Render_Form) {
@@ -435,6 +478,8 @@ kp_event(int sym, int mods)
                         form_info.input.size -= 1;
                         da_append(&form_info.input, sym);
                         da_append(&form_info.input, 0);
+                } else if (sym == XKB_KEY_Escape) {
+                        close_form();
                 }
                 ask_for_redraw();
                 return;
@@ -449,13 +494,25 @@ kp_event(int sym, int mods)
         }
 
         else if (sym == XKB_KEY_Return) {
-                open_day_view(cursor + 1);
+                if (render_state == Render_Month)
+                        open_day_view(cursor + 1);
+                else if (render_state == Render_Day) {
+                        if (day_selection % entries_per_task == 0) {
+                                button_edit_name(0, day_selection + day_selection / entries_per_task + 1);
+                        } else if (day_selection % entries_per_task == 1) {
+                                button_edit_desc(0, day_selection + day_selection / entries_per_task + 1);
+                        } else if (day_selection % entries_per_task == 2) {
+                                button_edit_date(0, day_selection + day_selection / entries_per_task + 1);
+                        } else if (day_selection % entries_per_task == 3) {
+                                button_delete_task(0, day_selection + day_selection / entries_per_task + 1);
+                        }
+                }
         }
 
         else if (sym == XKB_KEY_Escape) {
-                if (render_state == Render_Day) close_day_view();
-                if (render_state == Render_Form) close_form();
-
+                if (render_state == Render_Day) {
+                        close_day_view();
+                }
         }
 
         else if (sym == 'h' && mods == Mod_None) {
@@ -471,7 +528,7 @@ kp_event(int sym, int mods)
                         ask_for_redraw();
                         if ((cursor += 7) >= active_month->len) cursor = active_month->len - 1;
                 } else if (render_state == Render_Day) {
-                        button_prev_week(0, 0);
+                        button_day_selection_down(0, 0);
                 }
 
         } else if (sym == 'k' && mods == Mod_None) {
@@ -479,7 +536,7 @@ kp_event(int sym, int mods)
                         if ((cursor -= 7) < 0) cursor = 0;
                         ask_for_redraw();
                 } else if (render_state == Render_Day) {
-                        button_next_week(0, 0);
+                        button_day_selection_up(0, 0);
                 }
 
         } else if (sym == 'l' && mods == Mod_None) {
@@ -606,7 +663,7 @@ render_month()
         }
 
         int offset = active_month->days[0].tm.tm_wday;
-        uint32_t fg, bg, asc_bg, asc_fg;
+        uint32_t fg, bg, bg2, fg2;
         int n = 0, i, j, k;
         int off = 0;
 
@@ -624,19 +681,12 @@ render_month()
                 for (i = offset; i < 7 && n < active_month->len; i++, n++, offset = 0) {
                         assert(n >= 0 && n <= 30);
 
-                        if (cursor != n) {
-                                fg = FOREGROUND;
-                                bg = GRAY;
-                                asc_fg = BLUE;
-                                asc_bg = BACKGROUND;
-                        } else {
-                                fg = BLACK;
-                                bg = WHITE;
-                                asc_fg = WHITE;
-                                asc_bg = BACKGROUND;
-                        }
+                        fg = cursor != n ? FOREGROUND : BLACK;
+                        bg = cursor != n ? GRAY : WHITE;
+                        fg2 = cursor != n ? BLUE : WHITE;
+                        bg2 = cursor != n ? BACKGROUND : BACKGROUND;
 
-                        window_printf(self_window, i * month_cell_width + SEP, j + INITIAL_Y, asc_fg, asc_bg, "%*.*s ",
+                        window_printf(self_window, i * month_cell_width + SEP, j + INITIAL_Y, fg2, bg2, "%*.*s ",
                                       month_cell_width - 1 - SEP, month_cell_width - 1 - SEP, numbers[n]);
                         for (k = 1; k < month_cell_height; k++) {
                                 time_t t0 = active_month->days[n].time;
@@ -683,14 +733,38 @@ render_day()
         off += set_button(self_window, off, yoff, BLUE, BACKGROUND, button_next_day, " > ");
         ++yoff;
 
+        int entry_n = 0;
         for (int i = 0;; ++i) {
                 time_t t0 = active_month->days[cursor].time;
                 time_t t1 = active_month->days[cursor + 1].time;
                 Task *t = get_task_between(t0, t1, i);
                 if (t == NULL) break;
-                set_button(self_window, 0, yoff++, FOREGROUND, BACKGROUND, button_edit_name, "Name: %s", t->name);
-                set_button(self_window, 0, yoff++, FOREGROUND, BACKGROUND, button_edit_desc, "Desc: %s", t->desc);
-                set_button(self_window, 0, yoff++, FOREGROUND, BACKGROUND, button_edit_date, "Date: %s", repr_timer(t->date));
+
+                uint32_t fg, bg;
+
+                fg = day_selection == entry_n ? BACKGROUND : FOREGROUND;
+                bg = day_selection == entry_n ? FOREGROUND : BACKGROUND;
+
+                set_button(self_window, 0, yoff++, fg, bg, button_edit_name, "Name: %s", t->name);
+                ++entry_n;
+
+                fg = day_selection == entry_n ? BACKGROUND : FOREGROUND;
+                bg = day_selection == entry_n ? FOREGROUND : BACKGROUND;
+
+                set_button(self_window, 0, yoff++, fg, bg, button_edit_desc, "Desc: %s", t->desc);
+                ++entry_n;
+
+                fg = day_selection == entry_n ? BACKGROUND : FOREGROUND;
+                bg = day_selection == entry_n ? FOREGROUND : BACKGROUND;
+
+                set_button(self_window, 0, yoff++, fg, bg, button_edit_date, "Date: %s", repr_timer(t->date));
+                ++entry_n;
+
+                fg = day_selection == entry_n ? BACKGROUND : RED;
+                bg = day_selection == entry_n ? RED : BACKGROUND;
+
+                set_button(self_window, 0, yoff++, fg, bg, button_edit_name, "Delete");
+                ++entry_n;
                 ++yoff;
         }
 }

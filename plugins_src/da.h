@@ -71,7 +71,7 @@
 #define da_getsize(da) ((da).size)
 
 /* Get the index of an element given a pointer to this element */
-#define da_index(da_elem_ptr, da) (int) ((da_elem_ptr) - (da.data))
+#define da_index(da, da_elem_ptr) (int) ((da_elem_ptr) - (da.data))
 
 /* Remove element al index I */
 #define da_remove(da_ptr, i)                                              \
