@@ -424,7 +424,7 @@ button_delete_task(int x, int y)
         Task *t = get_task_between(t0, t1, task_n);
         assert(t);
         int task_index = da_index(tasks, t);
-        assert(task_index > 0 && task_index < tasks.size);
+        assert(task_index >= 0 && task_index < tasks.size);
         da_remove(&tasks, task_index);
         ask_for_redraw();
 }
@@ -461,6 +461,17 @@ button_day_selection_up(int x, int y)
         int entries = count_task_between(t0, t1, 0) * entries_per_task;
         if (entries == 0) return;
         day_selection = (day_selection - 1 + entries) % entries;
+        ask_for_redraw();
+}
+
+void
+button_new_task(int x, int y)
+{
+        time_t t0 = active_month->days[cursor].time;
+        Task t = (Task) {
+                .date = t0,
+        };
+        da_append(&tasks, t);
         ask_for_redraw();
 }
 
@@ -546,6 +557,10 @@ kp_event(int sym, int mods)
                 } else if (render_state == Render_Day) {
                         button_next_day(0, 0);
                 }
+        }
+
+        else if (sym == 'c' && mods == Mod_None) {
+                if (render_state == Render_Day) button_new_task(0, 0);
         }
 }
 
@@ -653,6 +668,18 @@ set_button(Window *window, int x, int y, uint32_t fg, uint32_t bg, void (*action
 }
 
 void
+open_hugo_web(int x, int y)
+{
+        int pid;
+        pid = fork();
+        if (pid == 0) {
+                execlp("xdg-open", "xdg-open", "https://hugocoto.com", NULL);
+                perror("xdg-open");
+                exit(0);
+        }
+}
+
+void
 render_month()
 {
         drop_all_buttons();
@@ -675,6 +702,7 @@ render_month()
         off += window_printf(self_window, off, 0, FOREGROUND, BACKGROUND, "%s", repr_year(active_month));
         off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_next_year, " > ");
         off += set_button(self_window, off, 0, YELLOW, BACKGROUND, button_today, " %s ", repr_today());
+        off += set_button(self_window, off, 0, BLUE, BACKGROUND, open_hugo_web, "   Hugo's Calendar  ");
 
         assert(offset >= 0 && offset <= 6 * month_cell_width);
         for (j = 0;; j += month_cell_height) {
@@ -731,6 +759,7 @@ render_day()
         off += set_button(self_window, off, yoff, BLUE, BACKGROUND, button_prev_day, " < ");
         off += window_printf(self_window, off, yoff, FOREGROUND, BACKGROUND, "%s", repr_day(cursor));
         off += set_button(self_window, off, yoff, BLUE, BACKGROUND, button_next_day, " > ");
+        off += set_button(self_window, off, yoff, GREEN, BACKGROUND, button_new_task, " new  ");
         ++yoff;
 
         int entry_n = 0;
@@ -763,7 +792,7 @@ render_day()
                 fg = day_selection == entry_n ? BACKGROUND : RED;
                 bg = day_selection == entry_n ? RED : BACKGROUND;
 
-                set_button(self_window, 0, yoff++, fg, bg, button_edit_name, "Delete");
+                set_button(self_window, 0, yoff++, fg, bg, button_delete_task, "Delete");
                 ++entry_n;
                 ++yoff;
         }
@@ -810,9 +839,14 @@ task_dump(const char *filename)
 
         for_da_each(elem, tasks)
         {
+                if (elem->name == 0) {
+                        printf("Task has no name! Ignoring it\n");
+                        continue;
+                }
+
 /*           */ #define T(x, ...)                   \
         /*           */ if (!strcmp(elem->name, x)) \
-                /*           */ continue;
+                /*          */ continue;
                 LIST_OF_TASKS
 /*           */ #undef T
                 fprintf(fp, "[%s]\n", elem->name);
@@ -827,7 +861,6 @@ task_dump(const char *filename)
 void
 task_parse_table(toml_table_t *table)
 {
-        printf("Parsing table %s\n", table->key);
         Task t = { 0 };
         if (table->key) t.name = strdup(table->key);
 
@@ -913,7 +946,6 @@ task_parse_table(toml_table_t *table)
                         printf("Invalid task! Don't forget the date (date = 2027-02-58)\n");
                         return;
                 }
-                printf("Appending task %s\n", t.name);
                 da_append(&tasks, t);
         }
 }
