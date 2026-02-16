@@ -59,8 +59,8 @@ typedef struct Task {
         uint32_t fg, bg;
 } Task;
 
-Task *get_task_between(time_t t0, time_t t1, int index);
-int count_task_between(time_t t0, time_t t1, int index);
+static Task *get_task_between(time_t t0, time_t t1, int index);
+static int count_task_between(time_t t0, time_t t1, int index);
 
 struct Task_DA {
         int capacity;
@@ -97,7 +97,7 @@ struct {
 #define LIST_OF_TASKS \
         T("now", 0, time(0), BACKGROUND, YELLOW)
 
-struct tm *
+static struct tm *
 today()
 {
         time_t _t = time(0);
@@ -107,7 +107,7 @@ today()
 }
 
 /* Month [0, 11] (January = 0) */
-Month *
+static Month *
 month_open(int month, int year)
 {
         assert(year >= 1900);
@@ -139,7 +139,7 @@ const char *const numbers[] = {
         "26", "27", "28", "29", "30", "31"
 };
 
-const char *
+static const char *
 repr_tm(struct tm *tm, const char *fmt)
 {
         static char buf[128];
@@ -148,43 +148,43 @@ repr_tm(struct tm *tm, const char *fmt)
         return buf;
 }
 
-const char *
+static const char *
 repr_day(int day)
 {
         return repr_tm(&active_month->days[day].tm, "%a %d %b");
 }
 
-const char *
+static const char *
 repr_today()
 {
         return repr_tm(today(), "%a %d %b");
 }
 
-const char *
+static const char *
 repr_month(Month *m)
 {
         return repr_tm(&m->days->tm, "%b");
 }
 
-const char *
+static const char *
 repr_year(Month *m)
 {
         return repr_tm(&m->days->tm, "%Y");
 }
 
-const char *
+static const char *
 repr_timer(time_t timer)
 {
         return repr_tm(localtime(&timer), "%F %T");
 }
 
-void
+static void
 month_close(Month *m)
 {
         if (m) free(m);
 }
 
-Month *
+static Month *
 get_current_month()
 {
         time_t t = time(NULL);
@@ -193,7 +193,7 @@ get_current_month()
         return month_open(tm->tm_mon, tm->tm_year + 1900);
 }
 
-Month *
+static Month *
 get_next_month(Month *m)
 {
         struct tm tm = m->days[0].tm;
@@ -202,7 +202,7 @@ get_next_month(Month *m)
         return month_open(mon, year + 1900);
 }
 
-Month *
+static Month *
 get_prev_month(Month *m)
 {
         struct tm tm = m->days[0].tm;
@@ -221,7 +221,7 @@ resize(int px, int py, int pw, int ph)
         ask_for_redraw();
 }
 
-void
+static void
 close_form()
 {
         if (form_info.status == FORM_OK) {
@@ -242,7 +242,7 @@ close_form()
         ask_for_redraw();
 }
 
-void
+static void
 open_form(Task *t, const char *field)
 {
         render_state = Render_Form;
@@ -263,7 +263,7 @@ open_form(Task *t, const char *field)
         ask_for_redraw();
 }
 
-void
+static void
 open_day_view(int day)
 {
         render_state = Render_Day;
@@ -272,32 +272,32 @@ open_day_view(int day)
         ask_for_redraw();
 }
 
-void
+static void
 close_day_view()
 {
         render_state = Render_Month;
         ask_for_redraw();
 }
 
-void
+static void
 drop_all_buttons()
 {
         buttons.size = 0;
 }
 
-void
+static void
 button_go_month(int x, int y)
 {
         close_day_view();
 }
 
-void
+static void
 button_go_day(int x, int y)
 {
         close_form();
 }
 
-void
+static void
 button_prev_day(int x, int y)
 {
         if (cursor-- <= 0) {
@@ -307,7 +307,7 @@ button_prev_day(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_next_day(int x, int y)
 {
         if (++cursor >= active_month->len) {
@@ -317,27 +317,25 @@ button_next_day(int x, int y)
         ask_for_redraw();
 }
 
-void
-button_prev_week(int x, int y)
-{
-        // guarrada historica
-        for (int i = 0; i < 7; i++) {
-                button_prev_day(0, 0);
-        }
-        ask_for_redraw();
-}
+// static void
+// button_prev_week(int x, int y)
+// {
+//         for (int i = 0; i < 7; i++) {
+//                 button_prev_day(0, 0);
+//         }
+//         ask_for_redraw();
+// }
 
-void
-button_next_week(int x, int y)
-{
-        for (int i = 0; i < 7; i++) {
-                button_next_day(0, 0);
-        }
-        ask_for_redraw();
-}
+// static void
+// button_next_week(int x, int y)
+// {
+//         for (int i = 0; i < 7; i++) {
+//                 button_next_day(0, 0);
+//         }
+//         ask_for_redraw();
+// }
 
-
-void
+static void
 button_prev_year(int x, int y)
 {
         // guarrada historica
@@ -348,7 +346,7 @@ button_prev_year(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_next_year(int x, int y)
 {
         for (int i = 0; i < 12; i++) {
@@ -358,7 +356,7 @@ button_next_year(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_prev_month(int x, int y)
 {
         active_month = get_prev_month(active_month);
@@ -366,7 +364,7 @@ button_prev_month(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_next_month(int x, int y)
 {
         active_month = get_next_month(active_month);
@@ -374,7 +372,7 @@ button_next_month(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_today(int x, int y)
 {
         active_month = get_current_month();
@@ -382,7 +380,7 @@ button_today(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_edit_name(int x, int y)
 {
         int task_n = (y - 1) / (entries_per_task + 1);
@@ -393,7 +391,7 @@ button_edit_name(int x, int y)
         open_form(t, "name");
 }
 
-void
+static void
 button_edit_desc(int x, int y)
 {
         int task_n = (y - 1) / (entries_per_task + 1);
@@ -404,7 +402,7 @@ button_edit_desc(int x, int y)
         open_form(t, "desc");
 }
 
-void
+static void
 button_edit_date(int x, int y)
 {
         int task_n = (y - 1) / (entries_per_task + 1);
@@ -415,7 +413,7 @@ button_edit_date(int x, int y)
         open_form(t, "date");
 }
 
-void
+static void
 button_delete_task(int x, int y)
 {
         int task_n = (y - 1) / (entries_per_task + 1);
@@ -429,20 +427,20 @@ button_delete_task(int x, int y)
         ask_for_redraw();
 }
 
-void
-button_form_back(int x, int y)
-{
-        close_form();
-}
+// static void
+// button_form_back(int x, int y)
+// {
+//         close_form();
+// }
 
-void
+static void
 button_form_ok(int x, int y)
 {
         form_info.status = FORM_OK;
         close_form();
 }
 
-void
+static void
 button_day_selection_down(int x, int y)
 {
         time_t t0 = active_month->days[cursor].time;
@@ -453,7 +451,7 @@ button_day_selection_down(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_day_selection_up(int x, int y)
 {
         time_t t0 = active_month->days[cursor].time;
@@ -464,7 +462,7 @@ button_day_selection_up(int x, int y)
         ask_for_redraw();
 }
 
-void
+static void
 button_new_task(int x, int y)
 {
         time_t t0 = active_month->days[cursor].time;
@@ -564,7 +562,7 @@ kp_event(int sym, int mods)
         }
 }
 
-int
+static int
 pointer_get_month_day(int x, int y, int *h)
 {
         if (y < INITIAL_Y || x < INITIAL_X || x >= month_cell_width * 7) {
@@ -574,7 +572,7 @@ pointer_get_month_day(int x, int y, int *h)
         int offset = active_month->days[0].tm.tm_wday;
         int row = (y - INITIAL_Y) / month_cell_height;
         int col = (x - INITIAL_X) / month_cell_width;
-        int is_sep = (x - INITIAL_X) % month_cell_width < SEP;
+        // int is_sep = (x - INITIAL_X) % month_cell_width < SEP;
 
         if (h) *h = (y - INITIAL_Y) % month_cell_height;
         if (row == 0 && col < offset) return 0;
@@ -629,7 +627,7 @@ pointer_event(Pointer_Event e)
         }
 }
 
-int
+static int
 count_task_between(time_t t0, time_t t1, int index)
 {
         int i = 0;
@@ -642,7 +640,7 @@ count_task_between(time_t t0, time_t t1, int index)
         return count - index;
 }
 
-Task *
+static Task *
 get_task_between(time_t t0, time_t t1, int index)
 {
         int i = 0;
@@ -657,7 +655,7 @@ get_task_between(time_t t0, time_t t1, int index)
         return NULL;
 }
 
-int
+static int
 set_button(Window *window, int x, int y, uint32_t fg, uint32_t bg, void (*action)(int, int), char *fmt, ...)
 {
         va_list ap;
@@ -668,7 +666,7 @@ set_button(Window *window, int x, int y, uint32_t fg, uint32_t bg, void (*action
         return len;
 }
 
-void
+static void
 open_hugo_web(int x, int y)
 {
         int pid;
@@ -680,7 +678,7 @@ open_hugo_web(int x, int y)
         }
 }
 
-void
+static void
 render_month()
 {
         drop_all_buttons();
@@ -742,7 +740,7 @@ render_month()
         }
 }
 
-void
+static void
 render_day()
 {
         drop_all_buttons();
@@ -799,7 +797,7 @@ render_day()
         }
 }
 
-void
+static void
 render_form()
 {
         drop_all_buttons();
@@ -828,7 +826,7 @@ render()
         }
 }
 
-void
+static void
 task_dump(const char *filename)
 {
         FILE *fp = fopen(filename, "w");
@@ -859,7 +857,7 @@ task_dump(const char *filename)
         }
 }
 
-void
+static void
 task_parse_table(toml_table_t *table)
 {
         Task t = { 0 };
@@ -943,15 +941,17 @@ task_parse_table(toml_table_t *table)
                         printf("Invalid task! Don't forget the name ([name])\n");
                         return;
                 }
+
                 if (!t.date) {
                         printf("Invalid task! Don't forget the date (date = 2027-02-58)\n");
                         return;
                 }
+
                 da_append(&tasks, t);
         }
 }
 
-void
+static void
 add_tasks(const char *filename)
 {
 /*   */ #define T(a, b, c, d, e) \

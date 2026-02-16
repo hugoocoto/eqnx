@@ -39,7 +39,7 @@
                         (da_ptr)->data = DA_REALLOC(                     \
                         (da_ptr)->data,                                  \
                         sizeof(*((da_ptr)->data)) * (da_ptr)->capacity); \
-                        assert(da_ptr);                                  \
+                        assert((da_ptr)->data);                          \
                 }                                                        \
                 assert((da_ptr)->size < (da_ptr)->capacity);             \
                 (da_ptr)->data[(da_ptr)->size++] = (__VA_ARGS__);        \
