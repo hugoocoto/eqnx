@@ -803,7 +803,11 @@ task_parse_table(toml_table_t *table)
                         }
 
                 } else if (!strcmp("desc", table->kval[i]->key)) {
-                        t.desc = strdup(table->kval[i]->val);
+                        char *ret;
+                        int len;
+                        toml_value_string(table->kval[i]->val, &ret, &len);
+                        t.desc = strdup(ret);
+
                 } else if (!strcmp("fg", table->kval[i]->key)) {
                         printf("No yet implemented: `fg` parsing\n");
                 } else if (!strcmp("bg", table->kval[i]->key)) {
