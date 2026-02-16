@@ -25,12 +25,12 @@ manager.
 
 ### Controls
 
-| key | action |
-| :--- | :--- |
-| `hjkl` | move left, down, up, right |
+| key       | action                        |
+| :-------- | :---------------------------- |
+| `hjkl`    | move left, down, up, right    |
 | `C-n/C-p` | go to the next/previous month |
-| `esc` | close the current view |
-| `c` | create a task inside a day |
+| `esc`     | close the current view        |
+| `c`       | create a task inside a day    |
 
 You can use the mouse to click buttons.
 
@@ -40,3 +40,10 @@ You can use the mouse to click buttons.
 of the tasks. It works without it, but I want to implement it.
 - When reading a day, it would be nice to be able to scroll if all the tasks
   didn't fit in the screen
+
+### Note of the author
+
+This plugin was written in carnival, in 4 days. I know it's not the best piece
+of software I wrote, but it works. I need it and I don't have more time, so I
+have to speedrun it. Althought that, I wrote every word by hand, no IA smell
+this code. It's under a thoudand lines, not that bad.

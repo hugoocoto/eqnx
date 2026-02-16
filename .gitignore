@@ -10,3 +10,4 @@ plugins/*.d
 wc.txt
 st
 *.png
+notes.toml

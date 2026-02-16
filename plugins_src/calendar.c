@@ -575,6 +575,7 @@ pointer_get_month_day(int x, int y, int *h)
         int row = (y - INITIAL_Y) / month_cell_height;
         int col = (x - INITIAL_X) / month_cell_width;
         int is_sep = (x - INITIAL_X) % month_cell_width < SEP;
+
         if (h) *h = (y - INITIAL_Y) % month_cell_height;
         if (row == 0 && col < offset) return 0;
 
