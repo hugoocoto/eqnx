@@ -704,7 +704,7 @@ render_form()
         off += set_button(self_window, off, yoff, RED, BACKGROUND, button_go_day, " back ");
         off += window_printf(self_window, off, yoff, FOREGROUND, BACKGROUND,
                              "task %s", form_info.t->name);
-        off += set_button(self_window, off, yoff, GREEN, BACKGROUND, button_go_day, " ok ");
+        off += set_button(self_window, off, yoff, GREEN, BACKGROUND, button_form_ok, " ok ");
         ++yoff;
         ++yoff;
 
