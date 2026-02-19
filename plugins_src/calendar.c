@@ -22,7 +22,7 @@
 #define BACKGROUND 0xdd000000 // semi transparent background
 
 #define SEP 1
-#define INITIAL_Y SEP
+#define INITIAL_Y 2
 #define INITIAL_X 0
 
 typedef struct Month Month;
@@ -139,6 +139,11 @@ const char *const numbers[] = {
         "26", "27", "28", "29", "30", "31"
 };
 
+const char *const week_day_name[] = {
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+        "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"
+};
+
 static const char *
 repr_tm(struct tm *tm, const char *fmt)
 {
@@ -217,7 +222,7 @@ resize(int px, int py, int pw, int ph)
         int w = 0, h = 0;
         window_px_to_coords(pw, ph, &w, &h);
         month_cell_width = w / 7;
-        month_cell_height = (h - 1) / 6;
+        month_cell_height = (h - 2) / 6;
         ask_for_redraw();
 }
 
@@ -569,7 +574,7 @@ pointer_get_month_day(int x, int y, int *h)
                 return 0;
         }
 
-        int offset = active_month->days[0].tm.tm_wday;
+        int offset = (active_month->days[0].tm.tm_wday + 6) % 7;
         int row = (y - INITIAL_Y) / month_cell_height;
         int col = (x - INITIAL_X) / month_cell_width;
         // int is_sep = (x - INITIAL_X) % month_cell_width < SEP;
@@ -688,7 +693,7 @@ render_month()
                 return;
         }
 
-        int offset = active_month->days[0].tm.tm_wday;
+        int offset = (active_month->days[0].tm.tm_wday + 6) % 7;
         uint32_t fg, bg, bg2, fg2;
         int n = 0, i, j, k;
         int off = 0;
@@ -702,6 +707,12 @@ render_month()
         off += set_button(self_window, off, 0, BLUE, BACKGROUND, button_next_year, " > ");
         off += set_button(self_window, off, 0, YELLOW, BACKGROUND, button_today, " %s ", repr_today());
         off += set_button(self_window, off, 0, BLUE, BACKGROUND, open_hugo_web, "   Hugo's Calendar  ");
+
+        bool use_short = (month_cell_width - 1) < (int) strlen("Wednesday");
+        for (i = 0; i < 7; i++) {
+                window_printf(self_window, i * month_cell_width + 1, 1, GRAY, BACKGROUND, "%-*.*s",
+                              month_cell_width - 1, month_cell_width - 1, week_day_name[use_short * 7 + i]);
+        }
 
         assert(offset >= 0 && offset <= 6 * month_cell_width);
         for (j = 0;; j += month_cell_height) {
@@ -884,14 +895,6 @@ task_parse_table(toml_table_t *table)
                         if (ts.month < 0) ts.month = now->tm_mon + 1;
                         if (ts.year < 0) ts.year = now->tm_year + 1900;
 
-                        // printf("-- Timestamp --\n");
-                        // printf("Seconds            %d \n", ts.second);
-                        // printf("Minutes            %d \n", ts.minute);
-                        // printf("Hour               %d \n", ts.hour);
-                        // printf("Day of the month   %d \n", ts.day);
-                        // printf("Month              %d \n", ts.month);
-                        // printf("Year               %d \n", ts.year);
-
                         struct tm date = (struct tm) {
                                 .tm_sec = ts.second,       /* Seconds          [0, 60] */
                                 .tm_min = ts.minute,       /* Minutes          [0, 59] */
@@ -941,12 +944,10 @@ task_parse_table(toml_table_t *table)
                         printf("Invalid task! Don't forget the name ([name])\n");
                         return;
                 }
-
                 if (!t.date) {
                         printf("Invalid task! Don't forget the date (date = 2027-02-58)\n");
                         return;
                 }
-
                 da_append(&tasks, t);
         }
 }
@@ -974,7 +975,6 @@ add_tasks(const char *filename)
                 fprintf(stderr, "toml parser: %s\n", errbuf);
                 return;
         }
-
         task_parse_table(table);
         toml_free(table);
 }
