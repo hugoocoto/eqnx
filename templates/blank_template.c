@@ -2,7 +2,6 @@
 #include <stdlib.h>
 
 #include "../src/plug_api.h"
-#include "theme.h"
 
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;

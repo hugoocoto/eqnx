@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 #include "../src/plug_api.h"
-#include "theme.h"
 
 
 /* On parallelism: As the plugin system is single-thread by design, calling api

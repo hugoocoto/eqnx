@@ -13,6 +13,12 @@ Documentation is [here](https://hugocoto.com/projects/eqnx)
 > distribution, ensuring that every element operates in a fluid and coordinated
 > manner.
 
+## makeexec.sh
+
+This tool creates a bash script for launching a esx program, moves this script
+to `~/.local/bin/` and creates a desktop entry pointing to this script.
+`makeexec.sh` have to be called in the same path where `eqnx` lives.
+
 ## Calendar
 
 ```sh

@@ -3,12 +3,11 @@
 /* This is not tested at all. It works in the few test I did but it can fail */
 
 /* Todo:
- * - accept -a=AA
  * - accept positional arguments? maybe not, I mean, you can iter over argv
  */
 
 #ifndef FLAG2_H_
-#define FLAG2_H_ 1
+#define FLAG2_H_
 
 #include <ctype.h>
 #include <stdio.h>
@@ -123,9 +122,9 @@ flag_parse(int *argc, char ***argv)
         if (!flag_prog.name || !*flag_prog.name) flag_prog.name = **argv;
 
         for (i = 0; i < *argc; i++) {
-                if (strcmp(argv[0][i], "-h") == 0 ||
-                    strcmp(argv[0][i], "-help") == 0 ||
-                    strcmp(argv[0][i], "--help") == 0) {
+                if (strcmp((*argv)[i], "-h") == 0 ||
+                    strcmp((*argv)[i], "-help") == 0 ||
+                    strcmp((*argv)[i], "--help") == 0) {
                         flag_show_help(STDOUT_FILENO);
                         exit(0);
                 }
@@ -136,28 +135,32 @@ flag_parse(int *argc, char ***argv)
                         fopt = flag_flags.flags + j;
                         if (!fopt->var) continue;
 
-                        int o = fopt->opt &&
-                                !strncmp(fopt->opt, argv[0][i], strlen(fopt->opt)) &&
-                                (argv[0][i][strlen(fopt->opt)] == 0 ||
-                                 argv[0][i][strlen(fopt->opt)] == '=');
-                        int a = fopt->abbr &&
-                                !strncmp(fopt->abbr, argv[0][i], strlen(fopt->abbr)) &&
-                                (argv[0][i][strlen(fopt->abbr)] == 0 ||
-                                 argv[0][i][strlen(fopt->abbr)] == '=');
+                        int o = fopt->opt && *fopt->opt &&
+                                !strncmp(fopt->opt, (*argv)[i], strlen(fopt->opt)) &&
+                                ((*argv)[i][strlen(fopt->opt)] == 0 ||
+                                 (*argv)[i][strlen(fopt->opt)] == '=');
+                        int a = fopt->abbr && *fopt->abbr &&
+                                !strncmp(fopt->abbr, (*argv)[i], strlen(fopt->abbr)) &&
+                                ((*argv)[i][strlen(fopt->abbr)] == 0 ||
+                                 (*argv)[i][strlen(fopt->abbr)] == '=');
 
                         /* var already set or name not match */
-                        if (!*fopt->var && !o && !a) continue;
+                        if (*fopt->var || (!o && !a)) continue;
 
                         if (fopt->nargs > 0) {
                                 if (fopt->nargs > 1) {
                                         fprintf(stderr, "Ups! Unsupported nargs > 1\n");
                                         return 1;
                                 }
-                                if ((o && argv[0][i][strlen(fopt->opt)] == '=') ||
-                                    (a && argv[0][i][strlen(fopt->abbr)] == '=')) {
-                                        *fopt->var = strchr(argv[0][i], '=') + 1;
+                                if (*argc <= i + 1) {
+                                        fprintf(stderr, "Error: OOB when reading value for `%s`\n", fopt->abbr ?: fopt->opt);
+                                        return 1;
+                                }
+                                if ((o && (*argv)[i][strlen(fopt->opt)] == '=') ||
+                                    (a && (*argv)[i][strlen(fopt->abbr)] == '=')) {
+                                        *fopt->var = strchr((*argv)[i], '=') + 1;
                                 } else {
-                                        *fopt->var = argv[0][i + 1];
+                                        *fopt->var = (*argv)[i + 1];
                                         ++i;
                                 }
                         } else
