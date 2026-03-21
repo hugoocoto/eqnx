@@ -25,6 +25,11 @@ to `~/.local/bin/` and creates a desktop entry pointing to this script.
 eqnx -p esx/calendar.esx
 ```
 
+> [!IMPORTANT]
+> Tasks with the same text before the first space breaks the toml parser so the
+> task file is erased. To prevent this, write unique names and use `_` instead
+> of spaces. TODO: use and id instead of the name
+
 This plugin let you edit and visualize tasks stored in a toml file. It's the
 newest version of [todo](https://github.com/hugoocoto/todo), my old task
 manager. 
