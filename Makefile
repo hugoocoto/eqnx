@@ -106,4 +106,4 @@ thirdparty/toml-c.h:
 	wget https://raw.githubusercontent.com/arp242/toml-c/refs/heads/main/header/toml-c.h -O $@
 
 debug: compile
-	gdb $(OUT) -ex "r -p ./esx/calendar.esx" 
+	gdb $(OUT) -ex "r -p ./esx/example3.esx" 

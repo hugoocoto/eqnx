@@ -10,19 +10,27 @@
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;
 
-static size_t *size;
-static char **buf;
-static size_t pointer = 0;
-static void (*callback)();
+size_t *size;
+char **buf;
+void (**callback)(void);
+
+size_t pointer = 0;
 
 void
 resize(int x, int y, int w, int h)
 {
+        ask_for_redraw();
 }
 
 void
 kp_event(int sym, int mods)
 {
+        // sanity checks for debug reasons
+        assert(buf);
+        assert(size);
+        assert(callback);
+        assert(*buf);
+
         switch (sym) {
         case XKB_KEY_Left:
                 if (pointer > 0) --pointer;
@@ -34,7 +42,7 @@ kp_event(int sym, int mods)
                 if (pointer < *size) {
                         (*buf)[pointer] = sym;
                         ++pointer;
-                        if (callback) callback();
+                        if (*callback) (*callback)();
                 } else {
                         printf("Overflow!\n");
                 }
@@ -50,6 +58,11 @@ pointer_event(Pointer_Event e)
 void
 render()
 {
+        int row, col;
+        uint32_t fg = BACKGROUND;
+        uint32_t bg = YELLOW;
+        window_clear(self_window, bg, bg);
+        window_puts(self_window, 0, 0, fg,  bg, "This window sends input via IPC");
 }
 
 int
@@ -64,14 +77,16 @@ main(int argc, char **argv)
                 exit(0);
         }
 
-        buf = symbol_get(argv[1]);
-        size = symbol_get(argv[2]);
-        callback = symbol_get(argv[3]);
+        symbol_register(argv[1], (void **) &buf, sizeof(char *));
+        symbol_register(argv[2], (void **) &size, sizeof(size_t));
+        symbol_register(argv[3], (void **) &callback, sizeof(void (*)(void)));
 
-        printf("Buffer: %p (size %p) callback %p\n", buf, size, callback);
-        if (size) printf("--> size %zu\n", *size);
-
-        if (buf == 0 || size == 0 || callback == 0) exit(1);
+        assert(buf);
+        assert(size);
+        assert(callback);
+        printf("----------\n");
+        printf("buf: %p, size: %zu, callback: %p\n", *buf, *size, *callback);
+        printf("----------\n");
 
         mainloop();
         return 0;

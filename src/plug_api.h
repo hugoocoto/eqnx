@@ -49,8 +49,7 @@ extern void window_coords_to_px(int px, int py, int *x, int *y);
 extern int fb_capture(char *filename);
 
 /* global_symbols.c */
-void *symbol_get(char *symbol);
-int symbol_add(char *symbol, void *value);
+int symbol_register(char *symbol, void **value, int size);
 
 
 #define mouse_event pointer_event

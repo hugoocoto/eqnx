@@ -10,8 +10,9 @@
 Window *self_window = NULL;
 Plugin *self_plugin = NULL;
 
-static size_t size = 100;
-static char *buf;
+size_t *size;
+char **buf;
+void (**callback)(void);
 
 void
 notify()
@@ -42,14 +43,14 @@ render()
         uint32_t bg = BACKGROUND;
         window_clear(self_window, BACKGROUND, BACKGROUND);
         size_t i;
-        for (i = 0; i < size && buf[i]; i++) {
+        for (i = 0; i < *size && (*buf)[i]; i++) {
                 row = i % self_window->w;
                 col = i / self_window->w;
-                window_set(self_window, row, col, buf[i], fg, bg);
+                window_set(self_window, row, col, (*buf)[i], fg, bg);
         }
         row = i % self_window->w;
         col = i / self_window->w;
-        window_set(self_window, row, col, buf[i] ?: ' ', fg, bg);
+        window_set(self_window, row, col, (*buf)[i] ?: ' ', fg, bg);
 }
 
 int
@@ -57,21 +58,28 @@ main(int argc, char **argv)
 {
         if (argc != 4) {
                 printf("Invalid args: %d\n"
-                       "Usage: %s <char* buffer reference symbol> "
+                       "Usage: %s "
+                       "<char* buffer reference symbol> "
                        "<int size reference symbol> "
                        "<void(*)(void) notify callback reference symbol>\n",
                        argc, argv[0]);
                 exit(0);
         }
 
-        buf = calloc(1, size);
+        symbol_register(argv[1], (void **) &buf, sizeof(char *));
+        symbol_register(argv[2], (void **) &size, sizeof(size_t));
+        symbol_register(argv[3], (void **) &callback, sizeof(void (*)(void)));
+        *size = 16;
+        *buf = calloc(1, *size);
+        *callback = notify;
 
-        symbol_add(argv[1], &buf);
-        printf("Adding symbol %s (%p)\n", argv[1], &buf);
-        symbol_add(argv[2], &size);
-        printf("Adding symbol %s (%p)\n", argv[2], &size);
-        symbol_add(argv[3], &notify);
-        printf("Adding symbol %s (%p)\n", argv[3], notify);
+        assert(buf);
+        assert(size);
+        assert(callback);
+        assert(*buf);
+        printf("----------\n");
+        printf("buf: %p, size: %zu, callback: %p\n", *buf, *size, *callback);
+        printf("----------\n");
 
         mainloop();
         return 0;

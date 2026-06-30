@@ -5,6 +5,11 @@
 #define SYMBOL_TABLE_SIZE 128
 static Hmap sym_table;
 
+struct Entry {
+        int size;
+        char *mem;
+};
+
 __attribute__((constructor)) void
 init()
 {
@@ -18,19 +23,21 @@ fini()
 }
 
 int
-symbol_add(char *symbol, void *value)
+symbol_register(char *symbol, void **store, int size)
 {
-        void *v;
-        hmget(sym_table, symbol, &v);
-        if (v) return -1;
-        hmadd(&sym_table, symbol, value);
-        return 0;
-}
+        struct Entry *v;
+        if (size <= 0) return -1;
 
-void *
-symbol_get(char *symbol)
-{
-        void *v = NULL;
-        hmget(sym_table, symbol, &v);
-        return v;
+        hmget(sym_table, symbol, (void **) &v);
+        if (v) {
+                if (size != v->size) return -1;
+                *store = v->mem;
+        } else {
+                v = malloc(sizeof(struct Entry));
+                v->mem = malloc(size);
+                v->size = size;
+                hmadd(&sym_table, symbol, v);
+                *store = v->mem;
+        }
+        return 0;
 }
