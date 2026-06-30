@@ -18,11 +18,13 @@ void
 notify()
 {
         printf("Notify!\n");
+        ask_for_redraw();
 }
 
 void
 resize(int x, int y, int w, int h)
 {
+        ask_for_redraw();
 }
 
 void

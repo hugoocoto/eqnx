@@ -47,7 +47,6 @@ kp_event(int sym, int mods)
                         printf("Overflow!\n");
                 }
         }
-        ask_for_redraw();
 }
 
 void
@@ -62,7 +61,7 @@ render()
         uint32_t fg = BACKGROUND;
         uint32_t bg = YELLOW;
         window_clear(self_window, bg, bg);
-        window_puts(self_window, 0, 0, fg,  bg, "This window sends input via IPC");
+        window_puts(self_window, 0, 0, fg, bg, "This window sends input via IPC");
 }
 
 int
