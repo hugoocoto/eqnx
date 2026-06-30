@@ -40,12 +40,15 @@ int
 resolve_real_name_inplace(char **name)
 {
         int fdin;
+        extern const char *psrc; // plugin src
         assert(name && *name);
-        return (fdin = resolve_try_name_inplace("", name, "")) >= 0              ? fdin :
-               (fdin = resolve_try_name_inplace("./plugins/", name, "")) >= 0    ? fdin :
-               (fdin = resolve_try_name_inplace("", name, ".so")) >= 0           ? fdin :
-               (fdin = resolve_try_name_inplace("./plugins/", name, ".so")) >= 0 ? fdin :
-                                                                                   -1;
+        return (fdin = (psrc ? resolve_try_name_inplace(psrc, name, "") : -1)) >= 0    ? fdin :
+               (fdin = (psrc ? resolve_try_name_inplace(psrc, name, ".so") : -1)) >= 0 ? fdin :
+               (fdin = resolve_try_name_inplace("", name, "")) >= 0                    ? fdin :
+               (fdin = resolve_try_name_inplace("./plugins/", name, "")) >= 0          ? fdin :
+               (fdin = resolve_try_name_inplace("", name, ".so")) >= 0                 ? fdin :
+               (fdin = resolve_try_name_inplace("./plugins/", name, ".so")) >= 0       ? fdin :
+                                                                                         -1;
 }
 
 // copy plugin.so into a temp file and return the (strdup) name of the new file.

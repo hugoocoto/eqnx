@@ -13,6 +13,15 @@ Documentation is [here](https://hugocoto.com/projects/eqnx)
 > distribution, ensuring that every element operates in a fluid and coordinated
 > manner.
 
+## Build eqnx program
+
+You can generate a script that runs your eqnx program. See `eqnx -h` for more
+info about the flags.
+
+```sh
+./eqnx -p esx/calendar.esx -s plugins/ --build
+```
+
 ## Calendar
 
 ```sh
