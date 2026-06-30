@@ -7,7 +7,7 @@ typedef struct Esx_Token Esx_Token;
 typedef Esx_Token Esx_Program;
 
 extern int esx_to_args(Esx_Program program, int *e_argc, char ***e_argv);
-extern int esx_parse_file(char *filename, Esx_Program *prog);
+extern int esx_parse_file(const char *filename, Esx_Program *prog);
 extern int esx_parse_string(char *buf, long buflen, Esx_Program *prog);
 
 #define TYPE_LIST          \

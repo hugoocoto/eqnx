@@ -14,7 +14,7 @@ WAYLAND_PROTOCOLS_DIR = $(shell pkg-config --variable=pkgdatadir wayland-protoco
 XDG_SHELL_XML = $(WAYLAND_PROTOCOLS_DIR)/stable/xdg-shell/xdg-shell.xml
 XDG_DECOR_XML = $(WAYLAND_PROTOCOLS_DIR)/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
 
-FLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-override-init -ggdb -rdynamic -fPIC 
+FLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-override-init -ggdb -rdynamic -fPIC -llua
 LIBS = -lwayland-client -lwayland-cursor -lxkbcommon -lm -lfontconfig -ldl
 INCLUDES = -I. -Isrc -I$(WAYLAND_OUT_PATH) -Ithirdparty
 
@@ -41,7 +41,7 @@ compile: $(WAYLAND_SOURCES) $(OUT) $(PLUGINS_SO)
 $(OUT): $(OBJ) $(WAYLAND_OBJ) 
 	$(CC) $(FLAGS) $^ -o $@ $(LIBS)
 
-$(OBJ_DIR)/src/%.o: src/%.c makefile $(HEADERS)
+$(OBJ_DIR)/src/%.o: src/%.c $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(FLAGS) $(INCLUDES) -c $< -o $@ -DVERSION=$(VERSION)
 
@@ -69,8 +69,10 @@ plugins/%.so: plugins_src/%.c $(OBJ) $(PLUG_HEADERS)
 	@ mkdir -p plugins
 	$(CC) $(FLAGS) $(INCLUDES) -shared $< -o $@
 
-install: /usr/local/man/man1/eqnx.1
-	# install -m 0755 $(OUT) /usr/local/bin/
+install: /usr/local/man/man1/eqnx.1 /usr/local/bin/$(OUT)
+
+/usr/local/bin/$(OUT): $(OUT)
+	install -m 0755 $(OUT) /usr/local/bin/
 
 /usr/local/man/man1/eqnx.1: eqnx.1
 	sudo install -g 0 -o 0 -m 0644 $< /usr/local/man/man1/
@@ -82,9 +84,6 @@ uninstall:
 
 clean:
 	rm -rf $(WAYLAND_OUT_PATH) $(OBJ_DIR) $(OUT) $(PLUGINS_DIR)
-
--include $(OBJ:.o=.d)
--include $(WAYLAND_OBJ:.o=.d)
 
 thirdparty/minicoro.h:
 	@mkdir -p thirdparty

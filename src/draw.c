@@ -8,7 +8,50 @@
 #include "wayland_client.h"
 #include "window.h"
 
-#include "../config.h"
+#define INCLUDE_CONF_IMPLEMENTATION
+#include "conf.h"
+
+struct {
+        const char *fontpath;
+        const char *fontname;
+        int fontsize;
+        int loaded; // false by default
+} config = {
+        /* defaults */
+        .fontpath = NULL,
+        .fontname = NULL,
+        .fontsize = 36,
+};
+
+void
+load_config()
+{
+        Conf conf;
+        int s = Conf_open(&conf, "config.lua");
+        if (s != CONF_OK) {
+                printf("Can't open config.lua\n");
+                return;
+        }
+        if (Conf_get_int(conf, "Font.size", &config.fontsize) != CONF_OK) {
+                printf("Can't read Font.size from config.lua\n");
+        } else {
+                printf("Font.size = %d\n", config.fontsize);
+        }
+        if (Conf_get_str(conf, "Font.path", &config.fontpath) != CONF_OK) {
+                printf("Can't read Font.path from config.lua\n");
+        } else {
+                printf("Font.path = %s\n", config.fontpath);
+                config.fontpath = strdup(config.fontpath);
+        }
+        if (Conf_get_str(conf, "Font.name", &config.fontname) != CONF_OK) {
+                printf("Can't read Font.name from config.lua\n");
+        } else {
+                config.fontname = strdup(config.fontname);
+                printf("Font.name = %s\n", config.fontname);
+        }
+        config.loaded = 1;
+        Conf_close(conf);
+}
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "../thirdparty/stb_truetype.h"
@@ -71,13 +114,14 @@ get_default_font()
         static Font *def = NULL;
         if (def) return def;
 
-        char *path = fontpath ? strdup(fontpath) : font_find_by_name(fontname);
-        if (path) def = load_font(path, fontsize);
+        if (!config.loaded) load_config();
+        char *path = config.fontpath ? strdup(config.fontpath) : font_find_by_name(config.fontname);
+        if (path) def = load_font(path, config.fontsize);
         if (!def) {
                 // rely on default monospace font
                 if (path) free(path);
                 path = font_find_by_name("monospace");
-                def = load_font(path, fontsize);
+                def = load_font(path, config.fontsize);
         }
         printf("Font: %s loaded\n", path);
         free(path);

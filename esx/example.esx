@@ -1,4 +1,4 @@
-(vsplit
+(vsplit 
     (vsplit
       (color 0xFFFF0000) 
       (color 0xFF00FF00) 

@@ -110,7 +110,7 @@ plug_safe_restart()
 }
 
 static int
-init_loop(char *ppath)
+init_loop(const char *ppath)
 {
         Esx_Program prog = { 0 };
         int argc;
@@ -220,11 +220,11 @@ loop:;
 int
 main(int argc, char **argv)
 {
-        char *v, *ppath;
+        const char *v;
+        const char *ppath;
         flag_program(.help = "eqnx by Hugo Coto");
         flag_add(&v, "--version", "-v", .help = "show version");
-        flag_add(&ppath, "--program", "-p", .help = "ESX program to be loaded",
-                 .nargs = 1, .required = 1);
+        flag_add(&ppath, "--program", "-p", .help = "ESX program to be loaded", .nargs = 1);
 
         if (flag_parse(&argc, &argv)) {
                 flag_show_help(STDOUT_FILENO);
@@ -232,6 +232,8 @@ main(int argc, char **argv)
         } else if (v) {
                 printf("Eqnx version %s\n", VERSION);
                 exit(0);
+        } else if (!ppath) {
+                printf("Eqnx program not set\n");
         }
 
         if (wayland_init()) {
@@ -242,6 +244,7 @@ main(int argc, char **argv)
         wayland_set_title("Eqnx");
         init_loop(ppath);
         wayland_cleanup();
+        flag_free();
 
         return 0;
 }

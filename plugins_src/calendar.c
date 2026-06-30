@@ -841,6 +841,7 @@ static void
 task_dump(const char *filename)
 {
         FILE *fp = fopen(filename, "w");
+        int counter = 0;
         if (!fp) {
                 printf("Can not dump tasks: ");
                 perror(filename);
@@ -859,12 +860,14 @@ task_dump(const char *filename)
                 /*          */ continue;
                 LIST_OF_TASKS
 /*           */ #undef T
-                fprintf(fp, "[%s]\n", elem->name);
-                fprintf(fp, "date = %s\n", repr_timer(elem->date));
+                fprintf(fp, "[%d]\n", counter);
+                if (elem->name) fprintf(fp, "name = \"%s\"\n", elem->name);
                 if (elem->desc) fprintf(fp, "desc = \"%s\"\n", elem->desc);
+                fprintf(fp, "date = %s\n", repr_timer(elem->date));
                 if (elem->bg) fprintf(fp, "bg = %x\n", elem->bg);
                 if (elem->fg) fprintf(fp, "fg = %x\n", elem->fg);
                 fprintf(fp, "\n");
+                ++counter;
         }
 }
 
@@ -872,7 +875,6 @@ static void
 task_parse_table(toml_table_t *table)
 {
         Task t = { 0 };
-        if (table->key) t.name = strdup(table->key);
 
         for (int i = 0; i < table->nkval; i++) {
                 if (0) {
@@ -915,7 +917,15 @@ task_parse_table(toml_table_t *table)
                         char *ret;
                         int len;
                         toml_value_string(table->kval[i]->val, &ret, &len);
+                        assert(ret);
                         t.desc = strdup(ret);
+
+                } else if (!strcmp("name", table->kval[i]->key)) {
+                        char *ret;
+                        int len;
+                        toml_value_string(table->kval[i]->val, &ret, &len);
+                        assert(ret);
+                        t.name = strdup(ret);
 
                 } else if (!strcmp("fg", table->kval[i]->key)) {
                         printf("No yet implemented: `fg` parsing\n");
@@ -941,7 +951,7 @@ task_parse_table(toml_table_t *table)
 
         if (table->key) {
                 if (!t.name) {
-                        printf("Invalid task! Don't forget the name ([name])\n");
+                        printf("Invalid task! Don't forget the name (name = Name)\n");
                         return;
                 }
                 if (!t.date) {
@@ -965,7 +975,6 @@ add_tasks(const char *filename)
 
         fp = fopen(filename, "r");
         if (!fp) {
-                printf("Can not load tasks: ");
                 perror(filename);
                 return;
         }

@@ -13,22 +13,11 @@ Documentation is [here](https://hugocoto.com/projects/eqnx)
 > distribution, ensuring that every element operates in a fluid and coordinated
 > manner.
 
-## makeexec.sh
-
-This tool creates a bash script for launching a esx program, moves this script
-to `~/.local/bin/` and creates a desktop entry pointing to this script.
-`makeexec.sh` have to be called in the same path where `eqnx` lives.
-
 ## Calendar
 
 ```sh
 eqnx -p esx/calendar.esx
 ```
-
-> [!IMPORTANT]
-> Tasks with the same text before the first space breaks the toml parser so the
-> task file is erased. To prevent this, write unique names and use `_` instead
-> of spaces. TODO: use and id instead of the name
 
 This plugin let you edit and visualize tasks stored in a toml file. It's the
 newest version of [todo](https://github.com/hugoocoto/todo), my old task
@@ -51,10 +40,3 @@ You can use the mouse to click buttons.
 of the tasks. It works without it, but I want to implement it.
 - When reading a day, it would be nice to be able to scroll if all the tasks
   didn't fit in the screen
-
-### Note of the author
-
-This plugin was written in carnival, in 4 days. I know it's not the best piece
-of software I wrote, but it works. I need it and I don't have more time, so I
-have to speedrun it. Althought that, I wrote every word by hand, no IA smell
-this code. It's under a thoudand lines, not that bad.

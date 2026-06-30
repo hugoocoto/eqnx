@@ -134,7 +134,7 @@ esx_parse_string(char *buf, ssize_t buflen, Esx_Program *prog)
 }
 
 int
-esx_parse_file(char *filename, Esx_Program *prog)
+esx_parse_file(const char *filename, Esx_Program *prog)
 {
         char buf[4 * 1024] = { 0 };
         ssize_t n;
