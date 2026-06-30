@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "config.h"
 #include "da.h"
 #include "draw.h"
 #include "esx.h"
@@ -222,9 +223,12 @@ main(int argc, char **argv)
 {
         const char *v;
         const char *ppath;
+        const char *cpath;
+
         flag_program(.help = "eqnx by Hugo Coto");
-        flag_add(&v, "--version", "-v", .help = "show version");
+        flag_add(&v, "--version", "-v", .help = "show eqnx version");
         flag_add(&ppath, "--program", "-p", .help = "ESX program to be loaded", .nargs = 1);
+        flag_add(&cpath, "--config", "-c", .help = "Config file", .nargs = 1, .defaults = "config.lua");
 
         if (flag_parse(&argc, &argv)) {
                 flag_show_help(STDOUT_FILENO);
@@ -234,6 +238,7 @@ main(int argc, char **argv)
                 exit(0);
         } else if (!ppath) {
                 printf("Eqnx program not set\n");
+                exit(0);
         }
 
         if (wayland_init()) {
@@ -241,6 +246,7 @@ main(int argc, char **argv)
                 exit(1);
         }
 
+        load_config(cpath);
         wayland_set_title("Eqnx");
         init_loop(ppath);
         wayland_cleanup();

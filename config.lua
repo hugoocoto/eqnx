@@ -2,5 +2,5 @@
 Font = {
     -- path = "/usr/share/fonts/TTF/IosevkaNerdFontMono-Medium.ttf" -- Absolute font path.
     name = "Iosevka NFM", -- Font name.
-    size = 20,            -- Font size (font height in px).
+    size = 30,            -- Font size (font height in px).
 }
