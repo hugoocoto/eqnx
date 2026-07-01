@@ -24,11 +24,9 @@ void mainloop();
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
 extern void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
 extern void plug_send_pointer_event(Plugin *p, Pointer_Event);
+extern void send_resize_event();
 extern void plug_replace_img(Plugin *current, char *plugpath);
 extern void plug_render(Plugin *p);
-
-extern void plug_replace_img(Plugin *current, char *plugpath);
-extern void send_resize_event();
 
 /* main.c */
 extern void ask_for_redraw();
@@ -46,12 +44,12 @@ extern void window_px_to_coords(int px, int py, int *x, int *y);
 extern void window_coords_to_px(int px, int py, int *x, int *y);
 
 /* wayland_client.h */
-extern int fb_capture(char *filename);
+extern int fb_capture(char *filename); // screencapture fullscreen (eqnx)
 
 /* global_symbols.c */
 int symbol_register(char *symbol, void **value, int size);
 
 
-#define mouse_event pointer_event
+#define mouse_event pointer_event // DEPRECATED !! -- May be removed
 
 #endif // !PLUG_H_
