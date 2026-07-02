@@ -56,6 +56,9 @@ Rewrite of zrun in rust. Zrun is an application launcher written in zig by
 myself.
 
 ```sh
-cd zrun_eqnx/
-./zrun.sh
+./zrun_eqnx/zrun.sh
 ```
+
+It uses the new eqnx build to generate a script. I add a line to rebuild the zig
+project for debug reasons. You may want to remove this line if you already have
+the plugin built.
