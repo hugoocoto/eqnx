@@ -3,7 +3,7 @@
 Eqnx (equinox) is a library for composing applications by merging independent
 plugins. It’s single thread, event-based and easy to use.
 
-Documentation is [here](https://hugocoto.com/projects/eqnx)
+Documentation is [here](https://wiki.hugocoto.com/projects/eqnx)
 
 > This tool provides the structural foundation for various software extensions
 > to seamlessly coexist within a single visual space. Users can program
@@ -49,3 +49,13 @@ You can use the mouse to click buttons.
 of the tasks. It works without it, but I want to implement it.
 - When reading a day, it would be nice to be able to scroll if all the tasks
   didn't fit in the screen
+
+## zrun
+
+Rewrite of zrun in rust. Zrun is an application launcher written in zig by
+myself.
+
+```sh
+cd zrun_eqnx/
+./zrun.sh
+```

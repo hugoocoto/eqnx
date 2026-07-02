@@ -6,15 +6,15 @@
 # - psrc: ./zig-out/lib/
 # - root: $HOME
 
-# ADD (manually): rebuild
-zig build || exit 1
-# -----------------------
-
 HERE="/home/hugo/code/eqnx/zrun_eqnx/"
 EQNX="$(which "../eqnx" || echo "$HERE/../eqnx")"
 PROG="$HERE/zrun.esx"
 CONF="$HERE/../config.lua"
 PSRC="$HERE/./zig-out/lib/"
+
+# ADD (manually): rebuild
+cd "$HERE" && zig build || exit 1
+# -----------------------
 
 # Change cwd to root
 cd "$HOME"
