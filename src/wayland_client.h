@@ -4,7 +4,7 @@
 #include "keypress.h"
 
 // 0 -> success
-int wayland_init();
+int wayland_init(int w, int h);
 int wayland_dispatch_events();
 void wayland_present();
 void wayland_cleanup();

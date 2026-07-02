@@ -122,7 +122,7 @@ extern "C" {
 
 #define flag_list(x, ...) (const char *[]){ x, ##__VA_ARGS__, 0 }
 
-#define MAX_FLAG_COUNT 8
+#define MAX_FLAG_COUNT 10
 
 struct flag_opts {
         const char *opt;        // Flag (--help)

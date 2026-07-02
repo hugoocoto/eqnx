@@ -28,6 +28,9 @@
 
 #define TITLE "Untitled"
 
+#define GEOMETRY_DEFAULT_W 800
+#define GEOMETRY_DEFAULT_H 600
+
 /* Globales Wayland */
 static struct wl_compositor *compositor;
 static struct wl_display *display;
@@ -533,8 +536,8 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t seri
 
         int w = pending_width;
         int h = pending_height;
-        if (w == 0) w = 800; // Tamaño por defecto
-        if (h == 0) h = 600;
+        if (w == 0) w = GEOMETRY_DEFAULT_W; // Tamaño por defecto
+        if (h == 0) h = GEOMETRY_DEFAULT_H;
 
         if (w != screen_fb.logical_w || h != screen_fb.logical_h) {
                 fb_resize(w, h);
@@ -680,7 +683,7 @@ wayland_present(void)
 }
 
 int
-wayland_init(void)
+wayland_init(int w, int h)
 {
         xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if (!xkb_context) return 1;
@@ -715,6 +718,15 @@ wayland_init(void)
         xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
         xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
+        if (w > 0 && h > 0) {
+                printf("Wayland: geometry: %d, %d\n", w, h);
+                xdg_surface_set_window_geometry(xdg_surface, 0, 0, w, h);
+                xdg_toplevel_set_min_size(xdg_toplevel, w, h);
+                xdg_toplevel_set_max_size(xdg_toplevel, w, h);
+                pending_width = w;
+                pending_height = h;
+        }
+
         if (decoration_manager) {
                 struct zxdg_toplevel_decoration_v1 *decoration =
                 zxdg_decoration_manager_v1_get_toplevel_decoration(decoration_manager, xdg_toplevel);
@@ -731,6 +743,9 @@ wayland_init(void)
         while (!configured) {
                 if (wl_display_dispatch(display) < 0) return 1;
         }
+
+        if (!(w > 0 && h > 0))
+                printf("Wayland: geometry: auto (%d, %d)\n", screen_fb.logical_w, screen_fb.logical_h);
 
         if (fb_create(screen_fb.logical_w, screen_fb.logical_h) != 0) return 1;
 

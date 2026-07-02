@@ -20,4 +20,4 @@ PSRC="$HERE/./zig-out/lib/"
 cd "$HOME"
 
 # Run
-"$EQNX" -p "$PROG" -c "$CONF" -s "$PSRC"
+"$EQNX" -p "$PROG" -c "$CONF" -s "$PSRC" --size="600x400"

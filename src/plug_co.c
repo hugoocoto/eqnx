@@ -8,6 +8,7 @@
 
 #include "da.h"
 #include "plug_co.h"
+#include "wayland_client.h"
 
 #define MINICORO_IMPL
 #include "../thirdparty/minicoro.h"

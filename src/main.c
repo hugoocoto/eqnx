@@ -36,6 +36,7 @@ const char *force;
 const char *ppath;
 const char *cpath;
 const char *root;
+const char *size;
 
 // global state
 static Plugin *p;
@@ -232,7 +233,7 @@ loop:;
 }
 
 int
-build(const char *exec, const char *program, const char *config, const char *source, const char *root)
+build(const char *exec, const char *program, const char *config, const char *source, const char *root, const char *size)
 {
         char cwd[PATH_MAX];
         if (getcwd(cwd, sizeof(cwd)) == NULL) return 1;
@@ -277,6 +278,7 @@ build(const char *exec, const char *program, const char *config, const char *sou
         fprintf(f, "# - prog: %s\n", program);
         fprintf(f, "# - conf: %s\n", config);
         fprintf(f, "# - psrc: %s\n", source);
+        if (size) fprintf(f, "# - size: %s\n", size);
         fprintf(f, "# - root: %s\n", root);
         fprintf(f, "\n");
         fprintf(f, "HERE=\"%s\"\n", cwd);
@@ -289,7 +291,10 @@ build(const char *exec, const char *program, const char *config, const char *sou
         fprintf(f, "cd \"%s\"\n", root);
         fprintf(f, "\n");
         fprintf(f, "# Run\n");
-        fprintf(f, "\"$EQNX\" -p \"$PROG\" -c \"$CONF\" -s \"$PSRC\"\n");
+        if (size)
+                fprintf(f, "\"$EQNX\" -p \"$PROG\" -c \"$CONF\" -s \"$PSRC\" --size %s\n", size);
+        else
+                fprintf(f, "\"$EQNX\" -p \"$PROG\" -c \"$CONF\" -s \"$PSRC\"\n");
         fclose(f);
 
         free(name);
@@ -310,6 +315,7 @@ main(int argc, char **argv)
         flag_add(&ppath, "--prog", "-p", .help = "ESX program to be loaded", .nargs = 1);
         flag_add(&cpath, "--conf", "-c", .help = "Config file", .nargs = 1, .defaults = "config.lua");
         flag_add(&psrc, "--src", "-s", .help = "Plugin source path (terminated by '/')", .nargs = 1);
+        flag_add(&size, "--size", .help = "Window size (e.g. 800x600)", .nargs = 1);
 
         if (flag_parse(&argc, &argv)) {
                 flag_show_help(STDOUT_FILENO);
@@ -331,18 +337,27 @@ main(int argc, char **argv)
 
         if (b) {
                 // program is set
-                if (build(argv[0], ppath, cpath, psrc, root)) {
+                if (build(argv[0], ppath, cpath, psrc, root, size)) {
                         printf("Error while building:\n");
                         printf("- eqnx: %s\n", argv[0]);
                         printf("- prog: %s\n", ppath);
                         printf("- conf: %s\n", cpath);
                         printf("- psrc: %s\n", psrc);
                         printf("- root: %s\n", root);
+                        printf("- size: %s\n", size);
                 }
                 exit(0);
         }
 
-        if (wayland_init()) {
+        int geo_w = 0, geo_h = 0;
+        if (size) {
+                if (sscanf(size, "%dx%d", &geo_w, &geo_h) != 2 || geo_w <= 0 || geo_h <= 0) {
+                        printf("Invalid size format, use WxH (e.g. 800x600)\n");
+                        exit(1);
+                }
+        }
+
+        if (wayland_init(geo_w, geo_h)) {
                 printf("Can not open wayland display!\n");
                 exit(1);
         }
