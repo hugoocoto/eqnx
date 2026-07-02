@@ -1,5 +1,7 @@
 const std = @import("std");
 
+extern var environ: [*:null]?[*:0]u8;
+
 const eqnx = @cImport({
     @cInclude("plug_api.h");
     @cInclude("theme.h");
@@ -37,6 +39,8 @@ pub export fn kp_event(sym: i32, mods: i32) callconv(.c) void {
         _ = ctx.input.pop();
     } else if (sym == eqnx.XKB_KEY_Return) {
         select_and_run();
+    } else if (sym == eqnx.XKB_KEY_Escape) {
+        std.process.exit(0);
     } else if ((sym == 'j' and eqnx.mod_has_Control(mods)) or sym == eqnx.XKB_KEY_Down) {
         ctx.selected += 1;
     } else if ((sym == 'k' and eqnx.mod_has_Control(mods)) or sym == eqnx.XKB_KEY_Up) {
@@ -377,10 +381,18 @@ fn select_and_run() void {
     info("Selected: {s}\n", .{e.efec_name.?});
     info("     run: {s}\n", .{e.exec.?});
 
-    const io = std.Io.Threaded.global_single_threaded.io();
+    const env_block: std.process.Environ.Block = .{
+        .slice = environ[0..std.mem.len(environ) :null],
+    };
+    var threaded = std.Io.Threaded.init(ctx.allocator, .{
+        .environ = .{ .block = env_block },
+    });
+    const io = threaded.io();
     _ = std.process.spawn(io, .{
         .argv = &.{ "sh", "-c", e.exec.? },
-    }) catch {};
+    }) catch |err| {
+        std.debug.print("Error: {}\n", .{err});
+    };
 
     std.process.exit(0);
 }
