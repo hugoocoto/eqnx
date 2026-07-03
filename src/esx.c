@@ -6,53 +6,29 @@
 #include <string.h>
 #include <unistd.h>
 
-#define STB_C_LEXER_IMPLEMENTATION
-#include "../thirdparty/stb_c_lexer.h"
-
 #include "da.h"
 #include "esx.h"
+#include "lexer.h"
+#include "tokens.h"
 
-const char *
-clex_repr(int token)
+static char *
+fix_str(char *str)
 {
-        static const char *const lookup[] = {
-                [CLEX_eof] = "CLEX_eof",
-                [CLEX_parse_error] = "CLEX_parse_error",
-                [CLEX_intlit] = "CLEX_intlit",
-                [CLEX_floatlit] = "CLEX_floatlit",
-                [CLEX_id] = "CLEX_id",
-                [CLEX_dqstring] = "CLEX_dqstring",
-                [CLEX_sqstring] = "CLEX_sqstring",
-                [CLEX_charlit] = "CLEX_charlit",
-                [CLEX_eq] = "CLEX_eq",
-                [CLEX_noteq] = "CLEX_noteq",
-                [CLEX_lesseq] = "CLEX_lesseq",
-                [CLEX_greatereq] = "CLEX_greatereq",
-                [CLEX_andand] = "CLEX_andand",
-                [CLEX_oror] = "CLEX_oror",
-                [CLEX_shl] = "CLEX_shl",
-                [CLEX_shr] = "CLEX_shr",
-                [CLEX_plusplus] = "CLEX_plusplus",
-                [CLEX_minusminus] = "CLEX_minusminus",
-                [CLEX_pluseq] = "CLEX_pluseq",
-                [CLEX_minuseq] = "CLEX_minuseq",
-                [CLEX_muleq] = "CLEX_muleq",
-                [CLEX_diveq] = "CLEX_diveq",
-                [CLEX_modeq] = "CLEX_modeq",
-                [CLEX_andeq] = "CLEX_andeq",
-                [CLEX_oreq] = "CLEX_oreq",
-                [CLEX_xoreq] = "CLEX_xoreq",
-                [CLEX_arrow] = "CLEX_arrow",
-                [CLEX_eqarrow] = "CLEX_eqarrow",
-                [CLEX_shleq] = "CLEX_shleq",
-                [CLEX_shreq] = "CLEX_shreq",
-                [CLEX_first_unused_token] = "CLEX_first_unused_token",
-        };
+        // remove doble quotes
+        char *s = strdup(str + 1);
+        s[strlen(s) - 1] = 0;
 
-        if (token > 0 && token >= CLEX_eof && token <= CLEX_first_unused_token) {
-                return lookup[token];
+        // escape escaped chars
+        for (int i = 0; s[i] && s[i + 1]; i++) {
+                if (s[i] != '\\') continue;
+                memmove(&s[i], &s[i + 1], strlen(&s[i + 1]) + 1);
+                switch (s[i]) {
+                case 'n':
+                        s[i] = '\n';
+                        /* ... */
+                }
         }
-        return NULL;
+        return s;
 }
 
 static void
@@ -69,14 +45,42 @@ token_append(Esx_Program *prog, Esx_Token token)
 }
 
 static int
-parse_tokens(stb_lexer *lex, char *src, Esx_Program *prog)
+lexer_get_token(Tok *tok)
+{
+        int t = yylex();
+        tok->token = t;
+        switch (t) {
+        case TOK_EOF: return 0;
+        case TOK_INT: {
+                int base = 10;
+                if (!strncmp(yytext, "0x", 2)) base = 16;
+                if (!strncmp(yytext, "0o", 2)) base = 8;
+                tok->int_number = strtol(yytext, NULL, base);
+        } break;
+
+        case TOK_REAL: tok->real_number = strtod(yytext, NULL); break;
+        case TOK_STR: tok->string = fix_str(yytext); break;
+        case TOK_PATH: tok->string = strdup(yytext); break;
+        case '(': tok->string = "("; break;
+        case ')': tok->string = ")"; break;
+        case '|': tok->string = "|"; break;
+
+        default:
+                printf("Invalid switch case %d\n", t);
+                exit(1);
+        }
+        return t;
+}
+
+static int
+parse_tokens(Tok *lex, char *src, Esx_Program *prog)
 {
         int has_error = 0;
 
-        while (stb_c_lexer_get_token(lex)) {
+        while (lexer_get_token(lex)) {
                 int token = lex->token;
                 switch (token) {
-                case CLEX_parse_error: return 1;
+                case TOK_EOF: break;
                 case '|': goto while_continue;
 
                 case '(': {
@@ -89,25 +93,16 @@ parse_tokens(stb_lexer *lex, char *src, Esx_Program *prog)
                         return has_error;
 
                         // clang-format off
-                case CLEX_intlit: token_append(prog, (Esx_Token) { .type = Esx_Intlit, .as.i = lex->int_number }); break;
-                case CLEX_floatlit: token_append(prog, (Esx_Token) { .type = Esx_FloatLit, .as.f = lex->real_number }); break;
-                case CLEX_charlit: token_append(prog, (Esx_Token) { .type = Esx_CharLit, .as.i = lex->int_number }); break;
-                case CLEX_dqstring:
-                case CLEX_sqstring: token_append(prog, (Esx_Token) { .type = Esx_String, .as.s = strdup(lex->string) }); break;
-                case CLEX_id: token_append(prog, (Esx_Token) { .type = Esx_Atom, .as.s = strdup(lex->string) }); break;
+                case TOK_INT: token_append(prog, (Esx_Token) { .type = Esx_Intlit, .as.i = lex->int_number }); break;
+                case TOK_REAL: token_append(prog, (Esx_Token) { .type = Esx_FloatLit, .as.f = lex->real_number }); break;
+                case TOK_STR: token_append(prog, (Esx_Token) { .type = Esx_String, .as.s = strdup(lex->string) }); break;
+                case TOK_PATH: token_append(prog, (Esx_Token) { .type = Esx_Atom, .as.s = strdup(lex->string) }); break;
                         // clang-format on
 
-                default: {
-                        stb_lex_location loc;
-                        stb_c_lexer_get_location(lex, lex->where_firstchar, &loc);
-                        printf("Error: %d:%d unexpected token ", loc.line_number, loc.line_offset + 1);
-                        if (0 < token && token < 256) {
-                                printf("`%c`\n", token);
-                        } else {
-                                printf("%s\n", clex_repr(token));
-                        }
+                default:
+                        printf("Error: unexpected token\n");
                         has_error = 1;
-                } break;
+                        break;
                 }
         while_continue:;
         }
@@ -117,20 +112,22 @@ parse_tokens(stb_lexer *lex, char *src, Esx_Program *prog)
 int
 esx_parse_string(char *buf, ssize_t buflen, Esx_Program *prog)
 {
-/*   */ #define pool_size 4 * 1024
-
         memset(prog, 0, sizeof(Esx_Program));
 
         if (buf[buflen] != 0) {
-                printf("Buffer len is not valid");
+                printf("Buffer len is not valid\n");
                 abort();
         }
 
-        char *pool = malloc(pool_size);
-        assert(pool);
-        stb_lexer lexer = { 0 };
-        stb_c_lexer_init(&lexer, buf, buf + buflen, pool, pool_size);
-        return parse_tokens(&lexer, buf, prog);
+        Tok tok = { 0 };
+
+        printf("ESX: parse string (`%.*s`)\n", (int) buflen, buf);
+
+        YY_BUFFER_STATE bufferState = yy_scan_string(buf);
+        int s = parse_tokens(&tok, buf, prog);
+        yy_delete_buffer(bufferState);
+        yylex_destroy();
+        return s;
 }
 
 int

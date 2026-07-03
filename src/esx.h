@@ -47,12 +47,12 @@ typedef struct Esx_Print_Opts {
 /*   */ #undef EPOL
 } Esx_Print_Opts;
 
-// Todo: Fix this
+// Todo: Fix this ++ idk what I have to fix
 
 #define EPOL(t, v, d) .v = (d),
 
 #define esx_print_program(prog, ...) \
-        if ((prog).next || (assert(!"prognext"), 0)) __esx_print_expression((prog).next->as.expr->next, (Esx_Print_Opts) { Esx_Print_Opts_List __VA_ARGS__ });
+        if ((prog).next || (assert(!"prog.next"), 0)) __esx_print_expression((prog).next->as.expr->next, (Esx_Print_Opts) { Esx_Print_Opts_List __VA_ARGS__ });
 
 #define esx_print_expression(expr, ...) \
         __esx_print_expression((expr), (Esx_Print_Opts) { Esx_Print_Opts_List __VA_ARGS__ });

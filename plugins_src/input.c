@@ -57,7 +57,6 @@ pointer_event(Pointer_Event e)
 void
 render()
 {
-        int row, col;
         uint32_t fg = BACKGROUND;
         uint32_t bg = YELLOW;
         window_clear(self_window, bg, bg);

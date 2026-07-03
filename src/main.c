@@ -29,12 +29,14 @@
 // like assert but returns x
 #define inline_assert(x) ({__auto_type _x = x; assert(_x); _x; })
 
+
 // program options
 const char *v;
 const char *b;
 const char *force;
 const char *ppath;
 const char *cpath;
+const char *psrc;
 const char *root;
 const char *size;
 
@@ -224,7 +226,9 @@ loop:;
                                 // I have to notify
                         }
                 }
+
                 // print_fps();
+                (void) print_fps;
         }
 
         plug_release(p);
@@ -301,9 +305,6 @@ build(const char *exec, const char *program, const char *config, const char *sou
         return 0;
 }
 
-// need to be read
-const char *psrc;
-
 int
 main(int argc, char **argv)
 {
@@ -349,7 +350,9 @@ main(int argc, char **argv)
                 exit(0);
         }
 
-        int geo_w = 0, geo_h = 0;
+        int geo_w = 0;
+        int geo_h = 0;
+
         if (size) {
                 if (sscanf(size, "%dx%d", &geo_w, &geo_h) != 2 || geo_w <= 0 || geo_h <= 0) {
                         printf("Invalid size format, use WxH (e.g. 800x600)\n");
