@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #define BACKGROUND 0XFF1D2021
 #define FOREGROUND 0XFFD4BE98
 #define BLACK 0XFF000000
