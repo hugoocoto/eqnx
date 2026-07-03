@@ -67,6 +67,7 @@ static bool has_pending_pointer = false;
 static char *current_title = NULL;
 static bool init = 0;
 static bool configured = false;
+static bool screen_float = false;
 
 struct Framebuffer {
         struct wl_buffer *buffers[2];
@@ -189,7 +190,6 @@ init_buffers(int w, int h, int stride)
         wl_shm_pool_destroy(pool);
         return 0;
 }
-
 static int
 fb_create(int logical_w, int logical_h)
 {
@@ -720,11 +720,12 @@ wayland_init(int w, int h)
 
         if (w > 0 && h > 0) {
                 printf("Wayland: geometry: %d, %d\n", w, h);
+                screen_float = true;
+                pending_width = w;
+                pending_height = h;
                 xdg_surface_set_window_geometry(xdg_surface, 0, 0, w, h);
                 xdg_toplevel_set_min_size(xdg_toplevel, w, h);
                 xdg_toplevel_set_max_size(xdg_toplevel, w, h);
-                pending_width = w;
-                pending_height = h;
         }
 
         if (decoration_manager) {
@@ -751,6 +752,12 @@ wayland_init(int w, int h)
 
         fb_clear(0xFF000000);
         wayland_present();
+
+        if (screen_float) {
+                xdg_toplevel_set_min_size(xdg_toplevel, 0, 0);
+                xdg_toplevel_set_max_size(xdg_toplevel, 0, 0);
+                wl_surface_commit(surface);
+        }
 
         wl_display_flush(display);
 
