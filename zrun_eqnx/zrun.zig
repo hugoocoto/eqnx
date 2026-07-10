@@ -358,6 +358,7 @@ fn _init() !void {
     };
 
     parse_desktop_dir(&ctx.entry_list, "/usr/share/applications/") catch {};
+    parse_desktop_dir(&ctx.entry_list, "/usr/local/share/applications/") catch {};
     parse_desktop_dir(&ctx.entry_list, "/home/hugo/.local/share/applications/") catch {};
 
     const entries = ctx.entry_list.list.items.len;

@@ -222,8 +222,7 @@ loop:;
 
                 for (int i = 1; i < fds.count; i++) {
                         if (fds.data[i].revents & POLLIN) {
-                                // fds.data[i].fd has input to read
-                                // I have to notify
+                                ask_for_redraw();
                         }
                 }
 
