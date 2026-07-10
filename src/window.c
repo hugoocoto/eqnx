@@ -62,8 +62,10 @@ window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *str)
         size_t i = 0;
         if (x < 0) i += -x;
         for (; i < len; i++) {
-                if (!isprint(str[i])) continue;
-                window_set(window, x + i, y, str[i], fg, bg);
+                unsigned char uc = (unsigned char)str[i];
+                if (uc < 0x20 && uc != '\t') continue;
+                if (uc == 0x7f) continue;
+                window_set(window, x + i, y, uc, fg, bg);
         }
         return len;
 }
@@ -186,8 +188,13 @@ create_fullscreen_window()
         fb_get_size(&fb_w, &fb_h);
         assert(fb_w > 0 && fb_h > 0);
 
-        int rows, cols;
-        window_px_to_coords(fb_w, fb_h, &rows, &cols);
+        // window_px_to_coords(px, py, *x, *y):
+        //   *x = px / grid_width  → number of COLUMNS
+        //   *y = py / grid_height → number of ROWS
+        // So we must bind *x to cols and *y to rows, then pass rows/cols to
+        // window_create(x, y, h, w) where h=rows and w=cols.
+        int cols, rows;
+        window_px_to_coords(fb_w, fb_h, &cols, &rows);
 
         Window *win = window_create(0, 0, rows, cols);
 

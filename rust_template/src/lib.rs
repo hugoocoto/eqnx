@@ -1,4 +1,14 @@
-include!("../bindings/eqnx.rs");
+#[allow(
+    non_upper_case_globals,
+    non_camel_case_types,
+    non_snake_case,
+    dead_code,
+    unnecessary_transmutes
+)]
+mod eqnx {
+    include!("../bindings/eqnx.rs");
+}
+
 use std::{ffi::CStr, ptr, slice};
 
 /* On parallelism: As the plugin system is single-thread by design, calling api
@@ -14,11 +24,11 @@ use std::{ffi::CStr, ptr, slice};
 
 // If you define this globals, they are assigned at plugin creation.
 #[unsafe(no_mangle)]
-pub static mut self_window: *mut Window = ptr::null_mut();
+pub static mut self_window: *mut eqnx::Window = ptr::null_mut();
 
 // Exporting a second mutable void* global
 #[unsafe(no_mangle)]
-pub static mut self_plugin: *mut Plugin = ptr::null_mut();
+pub static mut self_plugin: *mut eqnx::Plugin = ptr::null_mut();
 
 // This function is called when window is resized. Top left corner is on x,y
 // pixels, with w and h pixels width and height. Use window_px_to_coords() to
@@ -31,10 +41,10 @@ extern "C" fn resize(x: i32, y: i32, w: i32, h: i32) {
     let mut cw: i32 = 0;
     let mut ch: i32 = 0;
     unsafe {
-        window_px_to_coords(x, y, &mut cx, &mut cy);
+        eqnx::window_px_to_coords(x, y, &mut cx, &mut cy);
     }
     unsafe {
-        window_px_to_coords(w, h, &mut cw, &mut ch);
+        eqnx::window_px_to_coords(w, h, &mut cw, &mut ch);
     }
 }
 
@@ -43,13 +53,13 @@ extern "C" fn resize(x: i32, y: i32, w: i32, h: i32) {
 extern "C" fn kp_event(sym: i32, _mods: u32) {
     println!("Keypress {sym}");
     unsafe {
-        ask_for_redraw();
+        eqnx::ask_for_redraw();
     }
 }
 
 // Pointer event. A mouse event (movement, click, scroll) has happened.
 #[unsafe(no_mangle)]
-extern "C" fn pointer_event(e: Pointer_Event) {
+extern "C" fn pointer_event(e: eqnx::Pointer_Event) {
     let a: u32 = e.type_;
     println!("Pointer event {a}");
 }
@@ -60,8 +70,15 @@ extern "C" fn pointer_event(e: Pointer_Event) {
 extern "C" fn render() {
     // Draw stuff in the window here
     unsafe {
-        window_clear(self_window, BACKGROUND, BACKGROUND);
-        window_puts(self_window, 0, 0, FOREGROUND, BACKGROUND,  c"Hello from rust!".as_ptr().cast_mut());
+        eqnx::window_clear(self_window, eqnx::BACKGROUND, eqnx::BACKGROUND);
+        eqnx::window_puts(
+            self_window,
+            0,
+            0,
+            eqnx::FOREGROUND,
+            eqnx::BACKGROUND,
+            c"Hello from rust!".as_ptr().cast_mut(),
+        );
     }
 }
 
@@ -81,7 +98,7 @@ extern "C" fn main(argc: i32, argv: *const *const i8) -> i32 {
 
     // Start receiving events. This is a blocking function.
     unsafe {
-        mainloop();
+        eqnx::mainloop();
     }
 
     /* Your deinitializations here */
