@@ -31,7 +31,7 @@ pub export fn resize(_: i32, _: i32, pw: i32, ph: i32) callconv(.c) i32 {
     ctx.cols = @intCast(cw);
     ctx.rows = @intCast(ch);
     eqnx.ask_for_redraw();
-    0
+    return 0;
 }
 
 // Keypress event. A key has been pressed
@@ -52,13 +52,13 @@ pub export fn kp_event(sym: i32, mods: i32) callconv(.c) i32 {
         ctx.input.append(ctx.allocator, ch) catch {};
     }
     eqnx.ask_for_redraw();
-    0
+    return 0;
 }
 
 // Pointer event. A mouse event (movement, click, scroll) has happened.
 pub export fn pointer_event(e: eqnx.Pointer_Event) callconv(.c) i32 {
     std.debug.print("Pointer event: {}\n", .{e.type});
-    0
+    return 0;
 }
 
 // This function is called when the program request a new frame. You can request
@@ -66,7 +66,7 @@ pub export fn pointer_event(e: eqnx.Pointer_Event) callconv(.c) i32 {
 pub export fn render() callconv(.c) i32 {
     eqnx.window_clear(self_window, eqnx.BACKGROUND, eqnx.BACKGROUND);
     update_screen() catch {};
-    0
+    return 0;
 }
 
 // fn get_time() f64 {
