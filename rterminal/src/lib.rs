@@ -415,11 +415,11 @@ extern crate pty;
 use pty::fork::*;
 use std::{
     env,
-    ffi::CStr,
-    io::{Read, Write},
+    io::Write,
+    mem,
     os::fd::AsRawFd,
     process::Command,
-    ptr, slice,
+    ptr,
 };
 
 impl Term {
@@ -608,10 +608,13 @@ impl Term {
     fn do_lf(&mut self) {
         let cy = self.cur().y;
         if cy == self.scroll_bottom {
+            // At scroll region bottom: scroll the region up, cursor stays
             self.scroll_up(self.scroll_top, 1);
-        } else {
-            self.cur_mut().y += 1;
+        } else if cy < self.rows.saturating_sub(1) {
+            // Not at last screen row: advance
+            self.cur_mut().y = cy + 1;
         }
+        // else: at last screen row but outside scroll region → do nothing
         self.cur_mut().pending_wrap = false;
     }
 
@@ -889,14 +892,16 @@ impl Term {
 
         match (inter, priv_mode, final_byte) {
             // ── Cursor movement ──────────────────────────────────────────
+            // CUU/CUD clamp to screen edges (row 0 / last row), NOT scroll region.
+            // Only IND (ESC D) and RI (ESC M) interact with the scroll region.
             (0, false, b'A') => {
                 let n = p(0, 1) as usize;
-                let y = self.cur().y.saturating_sub(n).max(self.scroll_top);
+                let y = self.cur().y.saturating_sub(n);
                 self.move_y(y);
             }
             (0, false, b'B') => {
                 let n = p(0, 1) as usize;
-                let y = (self.cur().y + n).min(self.scroll_bottom);
+                let y = (self.cur().y + n).min(self.rows.saturating_sub(1));
                 self.move_y(y);
             }
             (0, false, b'C') => {
@@ -1553,12 +1558,15 @@ static mut TERM: Option<Box<Term>> = None;
 /// Safety: called only from the single eqnx event-loop thread.
 /// Uses raw pointer to satisfy the Edition 2024 `static_mut_refs` lint
 /// (no & or &mut taken from the static directly).
+///
+/// Returns `None` before `main()` has run (eqnx fires an initial `resize()`
+/// before the plugin `main()` executes), so callers can early-return.
 #[inline]
-unsafe fn term() -> &'static mut Term {
+unsafe fn try_term() -> Option<&'static mut Term> {
     let p = core::ptr::addr_of_mut!(TERM);
     match *p {
-        Some(ref mut b) => b.as_mut(),
-        None => panic!("TERM not initialised"),
+        Some(ref mut b) => Some(b.as_mut()),
+        None => None,
     }
 }
 
@@ -1622,10 +1630,11 @@ extern "C" fn resize(x: i32, y: i32, w: i32, h: i32) -> i32 {
             return 0;
         }
 
-        term().resize(new_rows, new_cols);
+        let Some(t) = try_term() else { return 0; };
+        t.resize(new_rows, new_cols);
 
         // Notify PTY
-        let fd = term().pty.as_raw_fd();
+        let fd = t.pty.as_raw_fd();
         set_winsize(fd, new_rows as i32, new_cols as i32);
     }
     0
@@ -1634,7 +1643,7 @@ extern "C" fn resize(x: i32, y: i32, w: i32, h: i32) -> i32 {
 #[unsafe(no_mangle)]
 extern "C" fn kp_event(sym: i32, mods: i32) -> i32 {
     unsafe {
-        let t = term();
+        let Some(t) = try_term() else { return 0; };
         let mods = mods as u32;
         let ctrl = mods & MOD_CONTROL != 0;
         let alt = mods & MOD_ALT != 0;
@@ -1690,26 +1699,26 @@ extern "C" fn kp_event(sym: i32, mods: i32) -> i32 {
         };
 
         if !handled {
+            // xkb_keysym_to_utf8 returns the number of bytes written INCLUDING
+            // the NUL terminator.  For 'a' it returns 2 (0x61, 0x00).  We must
+            // use n-1 to strip the NUL, otherwise every keystroke sends a NUL
+            // byte to the shell.
             let mut buf = [0u8; 8];
-            let n = eqnx::xkb_keysym_to_utf8(sym as u32, buf.as_mut_ptr() as *mut i8, buf.len());
-            if n > 1 || (n == 1 && buf[0] >= 0x20) {
-                if alt {
-                    let _ = t.pty.write(b"\x1b");
-                }
-                if ctrl && sym >= 0x40 && sym <= 0x7F {
-                    let _ = t.pty.write(&[(sym & 0x1f) as u8]);
-                } else {
-                    let _ = t.pty.write(&buf[..n as usize]);
-                }
-            } else if ctrl && sym >= 0x40 && sym <= 0x7F {
-                if alt {
-                    let _ = t.pty.write(b"\x1b");
-                }
+            let raw_n = eqnx::xkb_keysym_to_utf8(sym as u32, buf.as_mut_ptr() as *mut i8, buf.len());
+            let n = if raw_n > 0 { (raw_n - 1) as usize } else { 0 };
+
+            if ctrl && sym >= 0x20 && sym <= 0x7F {
+                // Ctrl+key: send the control code (sym & 0x1F)
+                if alt { let _ = t.pty.write(b"\x1b"); }
                 let _ = t.pty.write(&[(sym & 0x1f) as u8]);
+            } else if n > 0 {
+                // Normal printable character(s)
+                if alt { let _ = t.pty.write(b"\x1b"); }
+                let _ = t.pty.write(&buf[..n]);
             }
         }
 
-        let _ = term().pty.flush();
+        let _ = t.pty.flush();
         eqnx::ask_for_redraw();
     }
     0
@@ -1718,7 +1727,7 @@ extern "C" fn kp_event(sym: i32, mods: i32) -> i32 {
 #[unsafe(no_mangle)]
 extern "C" fn pointer_event(e: eqnx::Pointer_Event) -> i32 {
     unsafe {
-        let t = term();
+        let Some(t) = try_term() else { return 0; };
         if !t.modes.mouse {
             return 0;
         }
@@ -1772,30 +1781,34 @@ extern "C" fn pointer_event(e: eqnx::Pointer_Event) -> i32 {
 #[unsafe(no_mangle)]
 extern "C" fn render() -> i32 {
     unsafe {
-        let t = term();
+        let Some(t) = try_term() else { return 0; };
         let win = self_window;
+
+        // Read all available PTY data using raw libc::read().
+        //
+        // Why not Master::read()?  The pty crate's Read impl returns Ok(0)
+        // on ANY error (including EAGAIN/EWOULDBLOCK), so the WouldBlock
+        // check never fires and we can't distinguish "no data" from "EOF".
+        // Using libc::read directly lets us see the actual errno.
+        let fd = t.pty.as_raw_fd();
         let mut buf = [0u8; 4096];
         loop {
-            match t.pty.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => t.write_bytes(&buf[..n]),
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(_) => break,
+            let ret = libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len());
+            if ret > 0 {
+                t.write_bytes(&buf[..ret as usize]);
+            } else {
+                // ret == 0: EOF, ret == -1: error (EAGAIN/EWOULDBLOCK = no data)
+                break;
             }
         }
+
         t.draw(win);
     }
     0
 }
 
 #[unsafe(no_mangle)]
-extern "C" fn main(argc: i32, argv: *const *const i8) -> i32 {
-    let args = unsafe { slice::from_raw_parts(argv, argc as usize) };
-    for (i, &p) in args.iter().enumerate() {
-        let s = unsafe { CStr::from_ptr(p).to_string_lossy() };
-        println!("arg[{i}] = {s}");
-    }
-
+extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     // Fork PTY + shell
     let master = create_pty();
 
@@ -1809,7 +1822,7 @@ extern "C" fn main(argc: i32, argv: *const *const i8) -> i32 {
         // Register the PTY fd so eqnx wakes us on output
         eqnx::listen_to_fd(fd);
 
-        TERM = Some(t);
+        core::ptr::addr_of_mut!(TERM).write(Some(t));
         eqnx::mainloop();
     }
     0
@@ -1828,10 +1841,23 @@ fn create_pty() -> Master {
     });
 
     match fork.is_parent() {
-        Ok(master) => master,
+        Ok(master) => {
+            // CRITICAL: Fork::drop() calls close() on the Master fd.
+            // Master is #[derive(Copy, Clone)] so is_parent() returns a
+            // *clone* (just copies the raw fd number, no dup()).  When
+            // `fork` goes out of scope, Drop closes the fd — leaving our
+            // cloned Master with a dangling fd number.  The kernel then
+            // reassigns that fd number to the next open() (Wayland memfd),
+            // and we end up reading framebuffer pixels instead of PTY data.
+            // mem::forget prevents the Drop from running.
+            mem::forget(fork);
+            master
+        }
         Err(_) => {
-            // Child: exec the shell
-            let err = Command::new(&shell).env("TERM", "xterm-256color").status();
+            // Child: exec the shell directly.
+            let mut cmd = Command::new(&shell);
+            cmd.env("TERM", "xterm-256color");
+            let err = cmd.status();
             match err {
                 Ok(s) => std::process::exit(s.code().unwrap_or(0)),
                 Err(e) => {
