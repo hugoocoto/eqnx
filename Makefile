@@ -21,7 +21,7 @@ INCLUDES = -I. -Isrc -I$(WAYLAND_OUT_PATH) -Ithirdparty
 SRC = $(wildcard src/*.c) src/lexer.c
 OBJ = $(patsubst src/%.c,$(OBJ_DIR)/src/%.o,$(SRC))
 HEADERS = $(wildcard src/*.h) $(WAYLAND_OUT_PATH)/xdg-shell-client-protocol.h $(WAYLAND_OUT_PATH)/xdg-decoration-unstable-v1.h $(DEPS) 
-DEPS = thirdparty/minicoro.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h thirdparty/toml-c.h src/lexer.h
+DEPS = thirdparty/minicoro.h thirdparty/stb_image.h thirdparty/stb_image_write.h thirdparty/stb_truetype.h thirdparty/toml-c.h src/lexer.h
 PLUG_HEADERS = $(wildcard plugins_src/*.h)
 
 # Protocolos Wayland (Se compilan como objetos separados para el binario final)
@@ -91,6 +91,10 @@ clean:
 thirdparty/minicoro.h:
 	@mkdir -p thirdparty
 	wget https://raw.githubusercontent.com/edubart/minicoro/refs/heads/main/minicoro.h -O $@
+
+thirdparty/stb_image.h:
+	@mkdir -p thirdparty
+	wget https://raw.githubusercontent.com/nothings/stb/refs/heads/master/stb_image.h -O $@
 
 thirdparty/stb_image_write.h:
 	@mkdir -p thirdparty

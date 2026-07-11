@@ -120,9 +120,6 @@ esx_parse_string(char *buf, ssize_t buflen, Esx_Program *prog)
         }
 
         Tok tok = { 0 };
-
-        printf("ESX: parse string (`%.*s`)\n", (int) buflen, buf);
-
         YY_BUFFER_STATE bufferState = yy_scan_string(buf);
         int s = parse_tokens(&tok, buf, prog);
         yy_delete_buffer(bufferState);

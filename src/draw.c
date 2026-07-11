@@ -11,6 +11,8 @@
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "../thirdparty/stb_truetype.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "../thirdparty/stb_image.h"
 
 #define UNREACHABLE(...)                                                            \
         do {                                                                        \
@@ -18,6 +20,8 @@
                 abort();                                                            \
         } while (0)
 
+// force alpha in images to be 0xFF (255) always.
+int force_alpha = 0;
 
 uint32_t
 utf8_to_codepoint(const char *str, int *consumed)
@@ -359,5 +363,103 @@ window_clear_line(Window *window, int y, uint32_t fg, uint32_t bg)
 {
         for (int i = 0; i < window->w; i++) {
                 window_set(window, i, y, 0, fg, bg);
+        }
+}
+
+Image *
+image_load(const char *path)
+{
+        int w, h, n;
+        unsigned char *rgba = stbi_load(path, &w, &h, &n, 4);
+        if (!rgba) return NULL;
+        printf("Image loaded: %s\n", path);
+
+        Image *img = malloc(sizeof(Image));
+        assert(img);
+        img->w = w;
+        img->h = h;
+        img->pixels = malloc((size_t) w * h * sizeof(uint32_t));
+        assert(img->pixels);
+
+        for (int i = 0; i < w * h; i++) {
+                uint32_t r = rgba[i * 4 + 0];
+                uint32_t g = rgba[i * 4 + 1];
+                uint32_t b = rgba[i * 4 + 2];
+                uint32_t a = rgba[i * 4 + 3];
+                img->pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+        STBI_FREE(rgba);
+        return img;
+}
+
+void
+image_unload(Image *img)
+{
+        if (!img) return;
+        free(img->pixels);
+        free(img);
+}
+
+void
+draw_image(Image *img, int x, int y)
+{
+        int fb_pw, fb_ph;
+        fb_get_size(&fb_pw, &fb_ph);
+
+        Font *f = get_default_font();
+        assert(f);
+        int grid_w = get_grid_width(f);
+        int grid_h = f->l_h;
+        int px = x * grid_w;
+        int py = y * grid_h;
+
+        uint32_t *fb = fb_get_active_data();
+
+        for (int row = 0; row < img->h; row++) {
+                int fb_y = py + row;
+                if (fb_y < 0 || fb_y >= fb_ph) continue;
+                for (int col = 0; col < img->w; col++) {
+                        int fb_x = px + col;
+                        if (fb_x < 0 || fb_x >= fb_pw) continue;
+
+                        int mask = force_alpha ? 0xFF000000 : 0; // force alpha = 255
+                        fb[fb_y * fb_pw + fb_x] = mask | img->pixels[row * img->w + col];
+                }
+        }
+}
+
+void
+draw_image_scaled(Image *img, int x, int y, int w, int h)
+{
+        int fb_pw, fb_ph;
+        fb_get_size(&fb_pw, &fb_ph);
+
+        Font *f = get_default_font();
+        assert(f);
+        int grid_w = get_grid_width(f);
+        int grid_h = f->l_h;
+        int px = x * grid_w;
+        int py = y * grid_h;
+        int pw = w * grid_w;
+        int ph = h * grid_h;
+
+        uint32_t *fb = fb_get_active_data();
+
+        for (int row = 0; row < ph; row++) {
+                int fb_y = py + row;
+                if (fb_y < 0 || fb_y >= fb_ph) continue;
+                int img_row = row * img->h / ph;
+                if (img_row < 0) img_row = 0;
+                if (img_row >= img->h) img_row = img->h - 1;
+                for (int col = 0; col < pw; col++) {
+                        int fb_x = px + col;
+                        if (fb_x < 0 || fb_x >= fb_pw) continue;
+                        int img_col = col * img->w / pw;
+                        if (img_col < 0) img_col = 0;
+                        if (img_col >= img->w) img_col = img->w - 1;
+
+                        int mask = force_alpha ? 0xFF000000 : 0; // force alpha = 255
+                        fb[fb_y * fb_pw + fb_x] = mask | img->pixels[img_row * img->w + img_col];
+                }
         }
 }

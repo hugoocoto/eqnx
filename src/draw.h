@@ -29,4 +29,14 @@ char *font_find_by_name(const char *name);
 unsigned char *get_fontcp(Font *f, uint32_t cp, int *xx, int *yy, int *bw, int *bh, int *ax, int *lsb);
 int draw_cp(Font *f, int px, int py, struct Char3);
 
+typedef struct {
+        uint32_t *pixels;  // ARGB 0xAARRGGBB
+        int w, h;          // pixel dimensions
+} Image;
+
+Image *image_load(const char *path);
+void   image_unload(Image *img); // optional — not required before process exit
+void   draw_image(Image *img, int x, int y);
+void   draw_image_scaled(Image *img, int x, int y, int w, int h);
+
 #endif

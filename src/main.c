@@ -62,9 +62,9 @@ void
 render_frame()
 {
         need_redraw = false;
-        if (p->render) p->render();
         assert(p->window);
         draw_window(p->window);
+        if (p->render) p->render();
         wayland_present();
 }
 

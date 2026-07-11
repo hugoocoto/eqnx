@@ -1,6 +1,7 @@
 #ifndef PLUG_H_
 #define PLUG_H_ 1
 
+#include "draw.h"
 #include "esx.h"
 #include "event.h"
 #include "window.h"
@@ -42,6 +43,12 @@ extern void window_clear(Window *window, uint32_t fg, uint32_t bg);
 extern void window_clear_line(Window *window, int y, uint32_t fg, uint32_t bg);
 extern void window_px_to_coords(int px, int py, int *col, int *row);
 extern void window_coords_to_px(int x, int y, int *px, int *py);
+
+/* draw.h */
+extern Image *image_load(const char *path);
+extern void image_unload(Image *img);
+extern void draw_image(Image *img, int x, int y);
+extern void draw_image_scaled(Image *img, int x, int y, int w, int h);
 
 /* wayland_client.h */
 extern int fb_capture(char *filename); // screencapture fullscreen (eqnx)

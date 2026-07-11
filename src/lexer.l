@@ -22,9 +22,11 @@ HEX "0x"[0-9a-fA-F]+
 REAL ({INT}"."{INT}?)|("."{INT})
 STR "\""({STRCHR}*|{ESCSEQ})*"\""
 PATH [^ \n()0-9][^ \n()]*
+WS [ \n\v\f\t\r]+
 
 %%
 
+{WS}    { }
 ")"     { return ')'; }
 "("     { return '('; }
 "|"     { return '|'; }
