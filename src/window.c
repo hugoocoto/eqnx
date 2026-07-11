@@ -188,13 +188,15 @@ create_fullscreen_window()
         fb_get_size(&fb_w, &fb_h);
         assert(fb_w > 0 && fb_h > 0);
 
-        // window_px_to_coords(px, py, *x, *y):
-        //   *x = px / grid_width  → number of COLUMNS
-        //   *y = py / grid_height → number of ROWS
-        // So we must bind *x to cols and *y to rows, then pass rows/cols to
-        // window_create(x, y, h, w) where h=rows and w=cols.
-        int cols, rows;
-        window_px_to_coords(fb_w, fb_h, &cols, &rows);
+        // window_create(x, y, h, w) internally calls window_resize(w, x, y, h, w)
+        // where the 4th param of window_create maps to w and 5th to h in
+        // window_resize.  So window_create's "h" is really width and "w" is
+        // really height.  The variable naming here reflects that: "rows" gets
+        // the px_to_coords *x output (= columns) and "cols" gets *y (= rows),
+        // so when passed as window_create(0, 0, rows, cols) the double-swap
+        // produces the correct result.
+        int rows, cols;
+        window_px_to_coords(fb_w, fb_h, &rows, &cols);
 
         Window *win = window_create(0, 0, rows, cols);
 
