@@ -13,13 +13,13 @@ static Plugin *plug_left;
 static Plugin *plug_right;
 
 void
-resize(int x, int y, int w, int h)
+resize(int px, int py, int pw, int ph)
 {
-        int sw, cw;
-        window_px_to_coords(w, 0, &cw, 0);
-        window_coords_to_px(cw / 2, 0, &sw, 0);
-        plug_send_resize_event(plug_left, x, y, sw, h);
-        plug_send_resize_event(plug_right, x + sw, y, w - sw, h);
+        int split_cols, split_px;
+        window_px_to_coords(pw, 0, &split_cols, 0);
+        window_coords_to_px(split_cols / 2, 0, &split_px, 0);
+        plug_send_resize_event(plug_left, px, py, split_px, ph);
+        plug_send_resize_event(plug_right, px + split_px, py, pw - split_px, ph);
         ask_for_redraw();
 }
 

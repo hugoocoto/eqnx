@@ -50,7 +50,7 @@ int event_kp_get_mods(Event e);
 
 typedef void (*Resize_Listener)(int, int, int, int);
 void add_resize_listener(Resize_Listener rl);
-void notify_resize_event(int x, int y, int w, int h);
+void notify_resize_event(int px, int py, int pw, int ph);
 
 typedef void (*Pointer_Listener)(Pointer_Event);
 void add_pointer_listener(Pointer_Listener pl);

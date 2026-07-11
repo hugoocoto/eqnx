@@ -155,9 +155,9 @@ fb_destroy()
 }
 
 static int
-init_buffers(int w, int h, int stride)
+init_buffers(int pw, int ph, int stride)
 {
-        size_t page_size = stride * h;
+        size_t page_size = stride * ph;
         size_t total_size = page_size * 2;
 
         if (screen_fb.capacity < total_size || screen_fb.fd < 0) {
@@ -179,11 +179,11 @@ init_buffers(int w, int h, int stride)
 
         struct wl_shm_pool *pool = wl_shm_create_pool(shm, screen_fb.fd, screen_fb.capacity);
 
-        screen_fb.buffers[0] = wl_shm_pool_create_buffer(pool, 0, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        screen_fb.buffers[0] = wl_shm_pool_create_buffer(pool, 0, pw, ph, stride, WL_SHM_FORMAT_ARGB8888);
         wl_buffer_add_listener(screen_fb.buffers[0], &buffer_listener, &screen_fb);
         screen_fb.busy[0] = false;
 
-        screen_fb.buffers[1] = wl_shm_pool_create_buffer(pool, page_size, w, h, stride, WL_SHM_FORMAT_ARGB8888);
+        screen_fb.buffers[1] = wl_shm_pool_create_buffer(pool, page_size, pw, ph, stride, WL_SHM_FORMAT_ARGB8888);
         wl_buffer_add_listener(screen_fb.buffers[1], &buffer_listener, &screen_fb);
         screen_fb.busy[1] = false;
 
@@ -251,10 +251,10 @@ fb_capture(char *filename)
 }
 
 void
-fb_get_size(int *w, int *h)
+fb_get_size(int *pw, int *ph)
 {
-        *w = screen_fb.logical_w;
-        *h = screen_fb.logical_h;
+        *pw = screen_fb.logical_w;
+        *ph = screen_fb.logical_h;
 }
 
 uint32_t *
@@ -534,14 +534,14 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, uint32_t seri
 {
         xdg_surface_ack_configure(xdg_surface, serial);
 
-        int w = pending_width;
-        int h = pending_height;
-        if (w == 0) w = GEOMETRY_DEFAULT_W; // Tamaño por defecto
-        if (h == 0) h = GEOMETRY_DEFAULT_H;
+        int pw = pending_width;
+        int ph = pending_height;
+        if (pw == 0) pw = GEOMETRY_DEFAULT_W; // Tamaño por defecto
+        if (ph == 0) ph = GEOMETRY_DEFAULT_H;
 
-        if (w != screen_fb.logical_w || h != screen_fb.logical_h) {
-                fb_resize(w, h);
-                notify_resize_event(0, 0, w, h);
+        if (pw != screen_fb.logical_w || ph != screen_fb.logical_h) {
+                fb_resize(pw, ph);
+                notify_resize_event(0, 0, pw, ph);
         }
 
         configured = true;
@@ -683,7 +683,7 @@ wayland_present(void)
 }
 
 int
-wayland_init(int w, int h)
+wayland_init(int pw, int ph)
 {
         xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
         if (!xkb_context) return 1;
@@ -718,14 +718,14 @@ wayland_init(int w, int h)
         xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
         xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
-        if (w > 0 && h > 0) {
-                printf("Wayland: geometry: %d, %d\n", w, h);
+        if (pw > 0 && ph > 0) {
+                printf("Wayland: geometry: %d, %d\n", pw, ph);
                 screen_float = true;
-                pending_width = w;
-                pending_height = h;
-                xdg_surface_set_window_geometry(xdg_surface, 0, 0, w, h);
-                xdg_toplevel_set_min_size(xdg_toplevel, w, h);
-                xdg_toplevel_set_max_size(xdg_toplevel, w, h);
+                pending_width = pw;
+                pending_height = ph;
+                xdg_surface_set_window_geometry(xdg_surface, 0, 0, pw, ph);
+                xdg_toplevel_set_min_size(xdg_toplevel, pw, ph);
+                xdg_toplevel_set_max_size(xdg_toplevel, pw, ph);
         }
 
         if (decoration_manager) {
@@ -745,7 +745,7 @@ wayland_init(int w, int h)
                 if (wl_display_dispatch(display) < 0) return 1;
         }
 
-        if (!(w > 0 && h > 0))
+        if (!(pw > 0 && ph > 0))
                 printf("Wayland: geometry: auto (%d, %d)\n", screen_fb.logical_w, screen_fb.logical_h);
 
         if (fb_create(screen_fb.logical_w, screen_fb.logical_h) != 0) return 1;

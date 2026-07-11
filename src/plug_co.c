@@ -292,12 +292,12 @@ plug_send_pointer_event(Plugin *p, Pointer_Event e)
 }
 
 void
-plug_send_resize_event(Plugin *p, int x, int y, int w, int h)
+plug_send_resize_event(Plugin *p, int px, int py, int pw, int ph)
 {
-        assert(x >= 0 && y >= 0 && w >= 0 && h >= 0);
+        assert(px >= 0 && py >= 0 && pw >= 0 && ph >= 0);
         if (!p) return;
-        window_resize_px(p->window, x, y, w, h);
-        if (p->resize) p->resize(x, y, w, h);
+        window_resize_px(p->window, px, py, pw, ph);
+        if (p->resize) p->resize(px, py, pw, ph);
 }
 
 void

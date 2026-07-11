@@ -51,9 +51,9 @@ build_path(char *path, char *name)
 }
 
 void
-resize(int x, int y, int w, int h)
+resize(int px, int py, int pw, int ph)
 {
-        window_px_to_coords(w, h, &cols, &rows);
+        window_px_to_coords(pw, ph, &cols, &rows);
         selected = 0;
         ask_for_redraw();
 }

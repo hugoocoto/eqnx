@@ -22,7 +22,7 @@ void mainloop();
 
 /* plug_co.h */
 extern void plug_send_kp_event(Plugin *p, int sym, int mods);
-extern void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
+extern void plug_send_resize_event(Plugin *p, int px, int py, int pw, int ph);
 extern void plug_send_pointer_event(Plugin *p, Pointer_Event);
 extern void send_resize_event();
 extern void plug_replace_img(Plugin *current, char *plugpath);
@@ -39,9 +39,9 @@ extern int window_puts(Window *window, int x, int y, uint32_t fg, uint32_t bg, c
 extern int window_printf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, ...);
 extern int window_vprintf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt, va_list ap);
 extern void window_clear(Window *window, uint32_t fg, uint32_t bg);
-extern void window_clear_line(Window *window, int line, uint32_t fg, uint32_t bg);
-extern void window_px_to_coords(int px, int py, int *x, int *y);
-extern void window_coords_to_px(int px, int py, int *x, int *y);
+extern void window_clear_line(Window *window, int y, uint32_t fg, uint32_t bg);
+extern void window_px_to_coords(int px, int py, int *col, int *row);
+extern void window_coords_to_px(int x, int y, int *px, int *py);
 
 /* wayland_client.h */
 extern int fb_capture(char *filename); // screencapture fullscreen (eqnx)

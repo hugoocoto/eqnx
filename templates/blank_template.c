@@ -7,7 +7,7 @@ Window *self_window = NULL;
 Plugin *self_plugin = NULL;
 
 void
-resize(int x, int y, int w, int h)
+resize(int px, int py, int pw, int ph)
 {
 }
 

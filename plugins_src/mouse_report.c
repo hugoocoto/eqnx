@@ -8,7 +8,7 @@ int last_pressed_char = ' ';
 Window *self_window;
 
 void
-resize(int x, int y, int w, int h)
+resize(int px, int py, int pw, int ph)
 {
 }
 

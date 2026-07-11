@@ -9,12 +9,12 @@ Window *self_window = NULL;
 Plugin *self_plugin = NULL;
 
 void
-resize(int x, int y, int w, int h)
+resize(int px, int py, int pw, int ph)
 {
         // (How to) get size in chars
         // int cx, cy, cw, ch;
-        // window_px_to_coords(x, y, &cx, &cy);
-        // window_px_to_coords(w, h, &cw, &ch);
+        // window_px_to_coords(px, py, &cx, &cy);
+        // window_px_to_coords(pw, ph, &cw, &ch);
         ask_for_redraw();
 }
 

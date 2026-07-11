@@ -22,8 +22,8 @@ window_resize(Window *window, int x, int y, int w, int h)
         assert(window->shared);
         window->x = x;
         window->y = y;
-        window->h = h;
         window->w = w;
+        window->h = h;
 
         if (window->parent != NULL) return 0;
 
@@ -44,13 +44,13 @@ window_resize(Window *window, int x, int y, int w, int h)
 }
 
 // uint32_t
-// window_get_codepoint(Window *window, int c, int r)
+// window_get_codepoint(Window *window, int x, int y)
 // {
-//         assert(c < window->w);
-//         assert(r < window->h);
-//         assert(c >= window->x);
-//         assert(r >= window->y);
-//         return window->buffer[r * window->gap + c].cp;
+//         assert(x < window->w);
+//         assert(y < window->h);
+//         assert(x >= window->x);
+//         assert(y >= window->y);
+//         return window->buffer[y * window->gap + x].cp;
 // }
 
 int
@@ -92,45 +92,45 @@ window_vprintf(Window *window, int x, int y, uint32_t fg, uint32_t bg, char *fmt
 }
 
 struct Char3
-window_get(Window *window, int c, int r)
+window_get(Window *window, int x, int y)
 {
-        assert(c < window->w + window->x);
-        assert(r < window->h + window->y);
-        assert(c >= 0);
-        assert(r >= 0);
-        return window->shared->buffer[(r + window->y) * window->shared->gap +
-                                      c + window->x];
+        assert(x < window->w + window->x);
+        assert(y < window->h + window->y);
+        assert(x >= 0);
+        assert(y >= 0);
+        return window->shared->buffer[(y + window->y) * window->shared->gap +
+                                      x + window->x];
 }
 
 void
-window_set(Window *window, int c, int r, uint32_t cp, uint32_t fg, uint32_t bg)
+window_set(Window *window, int x, int y, uint32_t cp, uint32_t fg, uint32_t bg)
 {
-        if (c >= window->w + window->x) return;
-        if (r >= window->h + window->y) return;
-        if (c < 0) return;
-        if (r < 0) return;
-        window->shared->buffer[(r + window->y) * window->shared->gap + c +
+        if (x >= window->w + window->x) return;
+        if (y >= window->h + window->y) return;
+        if (x < 0) return;
+        if (y < 0) return;
+        window->shared->buffer[(y + window->y) * window->shared->gap + x +
                                window->x] = (struct Char3) { cp, fg, bg };
 }
 
 void
 window_setall(Window *window, uint32_t cp, uint32_t fg, uint32_t bg)
 {
-        for (int r = 0; r < window->h; r++) {
-                for (int c = 0; c < window->w; c++) {
-                        window_set(window, c, r, cp, fg, bg);
+        for (int y = 0; y < window->h; y++) {
+                for (int x = 0; x < window->w; x++) {
+                        window_set(window, x, y, cp, fg, bg);
                 }
         }
 }
 
 Window *
-window_create(int x, int y, int h, int w)
+window_create(int x, int y, int w, int h)
 {
         Window *window = malloc(sizeof(Window));
         memcpy(window, &DEFAULT_WINDOW, sizeof(Window));
         window->shared = calloc(1, sizeof(WindowSharedBuffer));
         assert(window->shared);
-        assert(window_resize(window, x, y, h, w) == 0);
+        assert(window_resize(window, x, y, w, h) == 0);
         return window;
 }
 
@@ -183,22 +183,15 @@ window_resize_px(Window *window, int px, int py, int pw, int ph)
 Window *
 create_fullscreen_window()
 {
-        int fb_w = 0, fb_h = 0;
+        int fb_pw = 0, fb_ph = 0;
 
-        fb_get_size(&fb_w, &fb_h);
-        assert(fb_w > 0 && fb_h > 0);
+        fb_get_size(&fb_pw, &fb_ph);
+        assert(fb_pw > 0 && fb_ph > 0);
 
-        // window_create(x, y, h, w) internally calls window_resize(w, x, y, h, w)
-        // where the 4th param of window_create maps to w and 5th to h in
-        // window_resize.  So window_create's "h" is really width and "w" is
-        // really height.  The variable naming here reflects that: "rows" gets
-        // the px_to_coords *x output (= columns) and "cols" gets *y (= rows),
-        // so when passed as window_create(0, 0, rows, cols) the double-swap
-        // produces the correct result.
-        int rows, cols;
-        window_px_to_coords(fb_w, fb_h, &rows, &cols);
+        int ncols, nrows;
+        window_px_to_coords(fb_pw, fb_ph, &ncols, &nrows);
 
-        Window *win = window_create(0, 0, rows, cols);
+        Window *win = window_create(0, 0, ncols, nrows);
 
         return win;
 }

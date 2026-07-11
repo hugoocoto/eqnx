@@ -21,20 +21,21 @@ const eqnx = @cImport({
 pub export var self_window: *eqnx.Window = undefined;
 pub export var self_plugin: *eqnx.Plugin = undefined;
 
-// This function is called when window is resized. Top left corner is on x,y
-// pixels, with w and h pixels width and height. Use window_px_to_coords() to
+// This function is called when window is resized. Top left corner is on px,py
+// pixels, with pw,ph pixels width and height. Use window_px_to_coords() to
 // get the window size in chars.
-pub export fn resize(_: i32, _: i32, w: i32, h: i32) callconv(.c) void {
+pub export fn resize(_: i32, _: i32, pw: i32, ph: i32) callconv(.c) i32 {
     var cw: i32 = undefined;
     var ch: i32 = undefined;
-    eqnx.window_px_to_coords(w, h, &cw, &ch);
+    eqnx.window_px_to_coords(pw, ph, &cw, &ch);
     ctx.cols = @intCast(cw);
     ctx.rows = @intCast(ch);
     eqnx.ask_for_redraw();
+    0
 }
 
 // Keypress event. A key has been pressed
-pub export fn kp_event(sym: i32, mods: i32) callconv(.c) void {
+pub export fn kp_event(sym: i32, mods: i32) callconv(.c) i32 {
     if (sym == eqnx.XKB_KEY_BackSpace) {
         _ = ctx.input.pop();
     } else if (sym == eqnx.XKB_KEY_Return) {
@@ -51,18 +52,21 @@ pub export fn kp_event(sym: i32, mods: i32) callconv(.c) void {
         ctx.input.append(ctx.allocator, ch) catch {};
     }
     eqnx.ask_for_redraw();
+    0
 }
 
 // Pointer event. A mouse event (movement, click, scroll) has happened.
-pub export fn pointer_event(e: eqnx.Pointer_Event) callconv(.c) void {
+pub export fn pointer_event(e: eqnx.Pointer_Event) callconv(.c) i32 {
     std.debug.print("Pointer event: {}\n", .{e.type});
+    0
 }
 
 // This function is called when the program request a new frame. You can request
 // a new frame from other functions using ask_for_redraw().
-pub export fn render() callconv(.c) void {
+pub export fn render() callconv(.c) i32 {
     eqnx.window_clear(self_window, eqnx.BACKGROUND, eqnx.BACKGROUND);
     update_screen() catch {};
+    0
 }
 
 // fn get_time() f64 {

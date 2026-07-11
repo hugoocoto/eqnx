@@ -22,7 +22,7 @@ notify()
 }
 
 void
-resize(int x, int y, int w, int h)
+resize(int px, int py, int pw, int ph)
 {
         ask_for_redraw();
 }
@@ -40,19 +40,19 @@ pointer_event(Pointer_Event e)
 void
 render()
 {
-        int row, col;
+        int x, y;
         uint32_t fg = FOREGROUND;
         uint32_t bg = BACKGROUND;
         window_clear(self_window, BACKGROUND, BACKGROUND);
         size_t i;
         for (i = 0; i < *size && (*buf)[i]; i++) {
-                row = i % self_window->w;
-                col = i / self_window->w;
-                window_set(self_window, row, col, (*buf)[i], fg, bg);
+                x = i % self_window->w;
+                y = i / self_window->w;
+                window_set(self_window, x, y, (*buf)[i], fg, bg);
         }
-        row = i % self_window->w;
-        col = i / self_window->w;
-        window_set(self_window, row, col, (*buf)[i] ?: ' ', fg, bg);
+        x = i % self_window->w;
+        y = i / self_window->w;
+        window_set(self_window, x, y, (*buf)[i] ?: ' ', fg, bg);
 }
 
 int

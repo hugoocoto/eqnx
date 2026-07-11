@@ -1615,14 +1615,14 @@ const MOD_ALT: u32 = 0x300;
 // ──────────────────────────────────────────────────────────────────────────────
 
 #[unsafe(no_mangle)]
-extern "C" fn resize(x: i32, y: i32, w: i32, h: i32) -> i32 {
+extern "C" fn resize(px: i32, py: i32, pw: i32, ph: i32) -> i32 {
     unsafe {
         let mut cx = 0i32;
         let mut cy = 0i32;
         let mut cw = 0i32;
         let mut ch = 0i32;
-        eqnx::window_px_to_coords(x, y, &mut cx, &mut cy);
-        eqnx::window_px_to_coords(w, h, &mut cw, &mut ch);
+        eqnx::window_px_to_coords(px, py, &mut cx, &mut cy);
+        eqnx::window_px_to_coords(pw, ph, &mut cw, &mut ch);
 
         let new_cols = (cw - cx) as usize;
         let new_rows = (ch - cy) as usize;

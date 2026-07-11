@@ -19,32 +19,35 @@ const eqnx = @cImport({
 pub export var self_window: *eqnx.Window = undefined;
 pub export var self_plugin: *eqnx.Plugin = undefined;
 
-// This function is called when window is resized. Top left corner is on x,y
-// pixels, with w and h pixels width and height. Use window_px_to_coords() to
+// This function is called when window is resized. Top left corner is on px,py
+// pixels, with pw,ph pixels width and height. Use window_px_to_coords() to
 // get the window size in chars.
-pub export fn resize(x: i32, y: i32, w: i32, h: i32) callconv(.c) void {
+pub export fn resize(px: i32, py: i32, pw: i32, ph: i32) callconv(.c) i32 {
     // (How to) get size in chars
     var cx: i32 = undefined;
     var cy: i32 = undefined;
     var cw: i32 = undefined;
     var ch: i32 = undefined;
-    eqnx.window_px_to_coords(x, y, &cx, &cy);
-    eqnx.window_px_to_coords(w, h, &cw, &ch);
+    eqnx.window_px_to_coords(px, py, &cx, &cy);
+    eqnx.window_px_to_coords(pw, ph, &cw, &ch);
+    0
 }
 
 // Keypress event. A key has been pressed
-pub export fn kp_event(sym: i32, mods: i32) callconv(.c) void {
+pub export fn kp_event(sym: i32, mods: i32) callconv(.c) i32 {
     std.debug.print("Pressed: {} | {}\n", .{ sym, mods });
+    0
 }
 
 // Pointer event. A mouse event (movement, click, scroll) has happened.
-pub export fn pointer_event(e: eqnx.Pointer_Event) callconv(.c) void {
+pub export fn pointer_event(e: eqnx.Pointer_Event) callconv(.c) i32 {
     std.debug.print("Pointer event: {}\n", .{e.type});
+    0
 }
 
 // This function is called when the program request a new frame. You can request
 // a new frame from other functions using ask_for_redraw().
-pub export fn render() callconv(.c) void {
+pub export fn render() callconv(.c) i32 {
     // Draw stuff in the window here
     std.debug.print("window clear?\n", .{});
     eqnx.window_clear(self_window, eqnx.BACKGROUND, eqnx.BACKGROUND);
@@ -52,6 +55,7 @@ pub export fn render() callconv(.c) void {
     std.debug.print("window_printf?\n", .{});
     _ = eqnx.window_printf(self_window, 0, 0, eqnx.FOREGROUND, eqnx.BACKGROUND, @constCast("%s"), "Hello from zig");
     std.debug.print("done\n", .{});
+    0
 }
 
 // Main function - entry point.

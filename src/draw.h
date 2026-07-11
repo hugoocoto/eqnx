@@ -15,14 +15,11 @@ typedef struct {
 
 Font *load_font(const char *path, int size);
 void draw_text(Font *f, int x, int y, const char *text, uint32_t color);
-void draw_rectangle(int x, int y, int w, int h, uint32_t color);
-void draw_clear_rectangle(int x, int y, int w, int h, int size, uint32_t color);
-void draw_text(Font *f, int x, int y, const char *text, uint32_t color);
-void draw_clear_rectangle(int x, int y, int w, int h, int size, uint32_t color);
-void draw_rectangle(int x, int y, int w, int h, uint32_t color);
+void draw_rectangle(int px, int py, int pw, int ph, uint32_t color);
+void draw_clear_rectangle(int px, int py, int pw, int ph, int size, uint32_t color);
 void draw_window(Window *win);
 uint32_t utf8_to_codepoint(const char *str, int *out_bytes_consumed);
-void print_bitmap(int x, int y, unsigned char *bitmap, int bw, int bh, uint32_t color);
+void print_bitmap(int px, int py, unsigned char *bitmap, int bw, int bh, uint32_t color);
 
 int get_grid_width(Font *f);
 Font *get_default_font();
@@ -30,6 +27,6 @@ Font *load_font(const char *path, int height);
 char *font_find_by_name(const char *name);
 
 unsigned char *get_fontcp(Font *f, uint32_t cp, int *xx, int *yy, int *bw, int *bh, int *ax, int *lsb);
-int draw_cp(Font *f, int x, int y, struct Char3);
+int draw_cp(Font *f, int px, int py, struct Char3);
 
 #endif

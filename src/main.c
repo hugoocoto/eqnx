@@ -81,9 +81,9 @@ keypress_listener(Keypress kp)
 }
 
 static void
-resize_listener(int x, int y, int w, int h)
+resize_listener(int px, int py, int pw, int ph)
 {
-        plug_send_resize_event(p, x, y, w, h);
+        plug_send_resize_event(p, px, py, pw, ph);
         fb_clear(0xFF000000);
         ask_for_redraw();
 }
@@ -98,10 +98,10 @@ void
 send_resize_event()
 {
         do {
-                int w, h;
-                fb_get_size(&w, &h);
-                assert(w > 0 && h > 0);
-                resize_listener(0, 0, w, h);
+                int pw, ph;
+                fb_get_size(&pw, &ph);
+                assert(pw > 0 && ph > 0);
+                resize_listener(0, 0, pw, ph);
         } while (0);
 }
 

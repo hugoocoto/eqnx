@@ -219,10 +219,10 @@ get_prev_month(Month *m)
 void
 resize(int px, int py, int pw, int ph)
 {
-        int w = 0, h = 0;
-        window_px_to_coords(pw, ph, &w, &h);
-        month_cell_width = w / 7;
-        month_cell_height = (h - 2) / 6;
+        int cols = 0, rows = 0;
+        window_px_to_coords(pw, ph, &cols, &rows);
+        month_cell_width = cols / 7;
+        month_cell_height = (rows - 2) / 6;
         ask_for_redraw();
 }
 

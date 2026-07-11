@@ -4,7 +4,7 @@
 #include "keypress.h"
 
 // 0 -> success
-int wayland_init(int w, int h);
+int wayland_init(int pw, int ph);
 int wayland_dispatch_events();
 void wayland_present();
 void wayland_cleanup();
@@ -13,7 +13,7 @@ void wayland_set_title(char *title);
 
 /* Framebuffer things */
 int fb_clear(uint32_t color);
-void fb_get_size(int *w, int *h);
+void fb_get_size(int *pw, int *ph);
 uint32_t *fb_get_active_data();
 uint32_t *fb_get_unactive_data(); // just because (use fb_get_active_data instead)
 

@@ -234,41 +234,41 @@ get_fontcp(Font *f, uint32_t cp, int *xx, int *yy, int *bw, int *bh, int *ax, in
 }
 
 int
-draw_cp(Font *f, int c, int r, struct Char3 sc)
+draw_cp(Font *f, int px, int py, struct Char3 sc)
 {
         int xx, yy, ax, lsb, bw, bh;
         unsigned char *bitmap;
 
         bitmap = get_fontcp(f, sc.cp, &xx, &yy, &bw, &bh, &ax, &lsb);
         // int border_size = 2;
-        // draw_clear_rectangle(c, r, get_grid_width(f), f->l_h, border_size, 0xFFFFFFFF);                                         // border
-        // draw_rectangle(c + border_size, r + border_size, get_grid_width(f) - 2 * border_size, f->l_h - 2 * border_size, sc.bg); // background
-        draw_rectangle(c, r, get_grid_width(f), f->l_h, sc.bg); // background
-        print_bitmap(c + xx, r + yy, bitmap, bw, bh, sc.fg);
+        // draw_clear_rectangle(px, py, get_grid_width(f), f->l_h, border_size, 0xFFFFFFFF);                                         // border
+        // draw_rectangle(px + border_size, py + border_size, get_grid_width(f) - 2 * border_size, f->l_h - 2 * border_size, sc.bg); // background
+        draw_rectangle(px, py, get_grid_width(f), f->l_h, sc.bg); // background
+        print_bitmap(px + xx, py + yy, bitmap, bw, bh, sc.fg);
         return roundf(ax * f->scale);
 }
 
 void
-draw_clear_rectangle(int x, int y, int w, int h, int size, uint32_t color)
+draw_clear_rectangle(int px, int py, int pw, int ph, int size, uint32_t color)
 {
-        int fb_w = 0;
-        int fb_h = 0;
-        fb_get_size(&fb_w, &fb_h);
-        assert(fb_w && fb_h);
+        int fb_pw = 0;
+        int fb_ph = 0;
+        fb_get_size(&fb_pw, &fb_ph);
+        assert(fb_pw && fb_ph);
 
         uint32_t *pixels = fb_get_active_data();
         assert(pixels);
 
-        if (x < 0) x = 0;
-        if (y < 0) y = 0;
-        if (x + w > fb_w) w = fb_w - x;
-        if (y + h > fb_h) h = fb_h - y;
+        if (px < 0) px = 0;
+        if (py < 0) py = 0;
+        if (px + pw > fb_pw) pw = fb_pw - px;
+        if (py + ph > fb_ph) ph = fb_ph - py;
 
-        for (int j = 0; j < h; j++) {
-                for (int i = 0; i < w; i++) {
-                        if (i < size || j < size ||
-                            w - i <= size || h - j <= size) {
-                                int pos = (y + j) * fb_w + (x + i);
+        for (int py_off = 0; py_off < ph; py_off++) {
+                for (int px_off = 0; px_off < pw; px_off++) {
+                        if (px_off < size || py_off < size ||
+                            pw - px_off <= size || ph - py_off <= size) {
+                                int pos = (py + py_off) * fb_pw + (px + px_off);
                                 pixels[pos] = color;
                         }
                 }
@@ -276,40 +276,40 @@ draw_clear_rectangle(int x, int y, int w, int h, int size, uint32_t color)
 }
 
 void
-draw_rectangle(int x, int y, int w, int h, uint32_t color)
+draw_rectangle(int px, int py, int pw, int ph, uint32_t color)
 {
-        int fb_w = 0, fb_h = 0;
-        fb_get_size(&fb_w, &fb_h);
+        int fb_pw = 0, fb_ph = 0;
+        fb_get_size(&fb_pw, &fb_ph);
         uint32_t *pixels = fb_get_active_data();
 
-        if (x < 0) x = 0;
-        if (y < 0) y = 0;
-        if (x + w > fb_w) w = fb_w - x;
-        if (y + h > fb_h) h = fb_h - y;
+        if (px < 0) px = 0;
+        if (py < 0) py = 0;
+        if (px + pw > fb_pw) pw = fb_pw - px;
+        if (py + ph > fb_ph) ph = fb_ph - py;
 
-        for (int r = 0; r < h; r++) {
-                for (int c = 0; c < w; c++) {
-                        int pos = (y + r) * fb_w + (x + c);
+        for (int py_off = 0; py_off < ph; py_off++) {
+                for (int px_off = 0; px_off < pw; px_off++) {
+                        int pos = (py + py_off) * fb_pw + (px + px_off);
                         pixels[pos] = color;
                 }
         }
 }
 
 void
-print_bitmap(int cc, int rr, unsigned char *bitmap, int bw, int bh, uint32_t fg)
+print_bitmap(int px, int py, unsigned char *bitmap, int bw, int bh, uint32_t fg)
 {
-        int fb_w = 0, fb_h = 0;
-        fb_get_size(&fb_w, &fb_h);
+        int fb_pw = 0, fb_ph = 0;
+        fb_get_size(&fb_pw, &fb_ph);
         uint32_t *pixels = fb_get_active_data();
 
         for (int r = 0; r < bh; r++) {
                 for (int c = 0; c < bw; c++) {
-                        int final_c = cc + c;
-                        int final_r = rr + r;
+                        int final_x = px + c;
+                        int final_y = py + r;
 
-                        if (final_c >= 0 && final_c < fb_w && final_r >= 0 && final_r < fb_h) {
+                        if (final_x >= 0 && final_x < fb_pw && final_y >= 0 && final_y < fb_ph) {
                                 alpha_blend_inplace(
-                                &pixels[final_r * fb_w + final_c],
+                                &pixels[final_y * fb_pw + final_x],
                                 fg,
                                 bitmap[r * bw + c], 256);
                         }
@@ -334,16 +334,16 @@ void
 draw_window(Window *win)
 {
         Font *f = get_default_font();
-        int pixel_r = win->y * f->l_h;
-        int pixel_c;
+        int py = win->y * f->l_h;
+        int px;
         int grid_width = get_grid_width(f);
 
-        for (int r = 0; r < win->h; r++, pixel_r += f->l_h) {
-                pixel_c = win->x * grid_width;
-                for (int c = 0; c < win->w; c++, pixel_c += grid_width) {
-                        struct Char3 sc = window_get(win, c, r);
+        for (int y = 0; y < win->h; y++, py += f->l_h) {
+                px = win->x * grid_width;
+                for (int x = 0; x < win->w; x++, px += grid_width) {
+                        struct Char3 sc = window_get(win, x, y);
                         if (sc.cp == 0) sc.cp = ' ';
-                        draw_cp(f, pixel_c, pixel_r, sc);
+                        draw_cp(f, px, py, sc);
                 }
         }
 }
@@ -355,9 +355,9 @@ window_clear(Window *window, uint32_t fg, uint32_t bg)
 }
 
 void
-window_clear_line(Window *window, int line, uint32_t fg, uint32_t bg)
+window_clear_line(Window *window, int y, uint32_t fg, uint32_t bg)
 {
         for (int i = 0; i < window->w; i++) {
-                window_set(window, i, line, 0, fg, bg);
+                window_set(window, i, y, 0, fg, bg);
         }
 }

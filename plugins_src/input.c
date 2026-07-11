@@ -17,7 +17,7 @@ void (**callback)(void);
 size_t pointer = 0;
 
 void
-resize(int x, int y, int w, int h)
+resize(int px, int py, int pw, int ph)
 {
         ask_for_redraw();
 }

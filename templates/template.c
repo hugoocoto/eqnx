@@ -20,36 +20,40 @@
 void *self_window;
 void *self_plugin;
 
-// This function is called when window is resized. Top left corner is on x,y
-// pixels, with w and h pixels width and height. Use window_px_to_coords() to
+// This function is called when window is resized. Top left corner is on px,py
+// pixels, with pw,ph pixels width and height. Use window_px_to_coords() to
 // get the window size in chars.
-void
-resize(int x, int y, int w, int h)
+int
+resize(int px, int py, int pw, int ph)
 {
         // (How to) get size in chars
         // int cx, cy, cw, ch;
-        // window_px_to_coords(x, y, &cx, &cy);
-        // window_px_to_coords(w, h, &cw, &ch);
+        // window_px_to_coords(px, py, &cx, &cy);
+        // window_px_to_coords(pw, ph, &cw, &ch);
+        return 0;
 }
 
 // Keypress event. A key has been pressed
-void
+int
 kp_event(int sym, int mods)
 {
+        return 0;
 }
 
 // Pointer event. A mouse event (movement, click, scroll) has happened.
-void
+int
 pointer_event(Pointer_Event e)
 {
+        return 0;
 }
 
 // This function is called when the program request a new frame. You can request
 // a new frame from other functions using ask_for_redraw().
-void
+int
 render()
 {
         // Draw stuff in the window here
+        return 0;
 }
 
 // Main function - entry point.

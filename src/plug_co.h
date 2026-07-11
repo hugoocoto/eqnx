@@ -10,7 +10,7 @@
         X(int, kp_event, int sym, int mods)  \
         X(int, pointer_event, Pointer_Event) \
         X(int, render)                       \
-        X(int, resize, int x, int y, int w, int h)
+        X(int, resize, int px, int py, int pw, int ph)
 
 #define X(ret, func, ...) ret (*func)(__VA_ARGS__);
 typedef struct Plugin {
@@ -39,7 +39,7 @@ Plugin *plug_open(char *plugdir, Plugin *plug_info, Window *window);
 void plug_add_child(Plugin *parent, Plugin *child);
 int plug_exec(Plugin *p);
 void plug_send_kp_event(Plugin *p, int sym, int mods);
-void plug_send_resize_event(Plugin *p, int x, int y, int w, int h);
+void plug_send_resize_event(Plugin *p, int px, int py, int pw, int ph);
 void plug_send_pointer_event(Plugin *p, Pointer_Event);
 void plug_render(Plugin *p);
 void ask_for_redraw();

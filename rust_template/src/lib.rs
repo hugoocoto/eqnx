@@ -30,44 +30,47 @@ pub static mut self_window: *mut eqnx::Window = ptr::null_mut();
 #[unsafe(no_mangle)]
 pub static mut self_plugin: *mut eqnx::Plugin = ptr::null_mut();
 
-// This function is called when window is resized. Top left corner is on x,y
-// pixels, with w and h pixels width and height. Use window_px_to_coords() to
+// This function is called when window is resized. Top left corner is on px,py
+// pixels, with pw,ph pixels width and height. Use window_px_to_coords() to
 // get the window size in chars.
 #[unsafe(no_mangle)]
-extern "C" fn resize(x: i32, y: i32, w: i32, h: i32) {
+extern "C" fn resize(px: i32, py: i32, pw: i32, ph: i32) -> i32 {
     // (How to) get size in chars
     let mut cx: i32 = 0;
     let mut cy: i32 = 0;
     let mut cw: i32 = 0;
     let mut ch: i32 = 0;
     unsafe {
-        eqnx::window_px_to_coords(x, y, &mut cx, &mut cy);
+        eqnx::window_px_to_coords(px, py, &mut cx, &mut cy);
     }
     unsafe {
-        eqnx::window_px_to_coords(w, h, &mut cw, &mut ch);
+        eqnx::window_px_to_coords(pw, ph, &mut cw, &mut ch);
     }
+    0
 }
 
 // Keypress event. A key has been pressed
 #[unsafe(no_mangle)]
-extern "C" fn kp_event(sym: i32, _mods: u32) {
+extern "C" fn kp_event(sym: i32, _mods: u32) -> i32 {
     println!("Keypress {sym}");
     unsafe {
         eqnx::ask_for_redraw();
     }
+    0
 }
 
 // Pointer event. A mouse event (movement, click, scroll) has happened.
 #[unsafe(no_mangle)]
-extern "C" fn pointer_event(e: eqnx::Pointer_Event) {
+extern "C" fn pointer_event(e: eqnx::Pointer_Event) -> i32 {
     let a: u32 = e.type_;
     println!("Pointer event {a}");
+    0
 }
 
 // This function is called when the program request a new frame. You can request
 // a new frame from other functions using ask_for_redraw().
 #[unsafe(no_mangle)]
-extern "C" fn render() {
+extern "C" fn render() -> i32 {
     // Draw stuff in the window here
     unsafe {
         eqnx::window_clear(self_window, eqnx::BACKGROUND, eqnx::BACKGROUND);
@@ -80,6 +83,7 @@ extern "C" fn render() {
             c"Hello from rust!".as_ptr().cast_mut(),
         );
     }
+    0
 }
 
 // Main function - entry point.

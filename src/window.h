@@ -7,12 +7,12 @@
 
 typedef struct Window Window;
 
-Window *window_create(int x, int y, int h, int w);
+Window *window_create(int x, int y, int w, int h);
 Window *create_fullscreen_window();
-int window_resize(Window *, int x, int y, int h, int w);
-int window_resize_px(Window *window, int x, int y, int w, int h);
-void window_px_to_coords(int px, int py, int *x, int *y);
-void window_coords_to_px(int px, int py, int *x, int *y);
+int window_resize(Window *, int x, int y, int w, int h);
+int window_resize_px(Window *window, int px, int py, int pw, int ph);
+void window_px_to_coords(int px, int py, int *col, int *row);
+void window_coords_to_px(int x, int y, int *px, int *py);
 
 struct Char3 window_get(Window *window, int x, int y);
 uint32_t window_get_codepoint(Window *window, int x, int y);
